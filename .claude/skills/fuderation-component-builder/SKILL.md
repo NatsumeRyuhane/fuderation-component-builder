@@ -9,9 +9,39 @@ A Workshop component is a **storyline-scoped widget** that renders inline in a s
 
 Common uses: info cards, task panels, mock login screens, progress bars, copy-to-clipboard buttons, quizzes, verification panels.
 
+## File output convention
+
+Every component gets its own directory. Use the component name (kebab-case for English, original for Chinese) as the directory name:
+
+```
+components/
+├── password-gate/
+│   ├── component.html          # source code (HTML + <style> + <script>)
+│   └── ai_additional_prompt.md # AI supplementary prompt
+├── info-card/
+│   ├── component.html
+│   └── ai_additional_prompt.md
+└── 登录验证/
+    ├── component.html
+    └── ai_additional_prompt.md
+```
+
+Create the `components/` directory at the project root if it does not exist. When creating or updating a component, always write both files.
+
+### Importing preexisting components
+
+When the user provides an existing component (raw code, a single file, or unorganized files):
+
+1. Identify each distinct component by its `<$Name$>` invocation tag.
+2. Create a directory per component under `components/`.
+3. Split source code into `component.html` and the AI prompt into `ai_additional_prompt.md`.
+4. If the AI prompt is missing, generate one following the [prompt format](#ai-supplementary-prompt-format).
+5. Run the [debugging checklist](#debugging-checklist) on each component and fix issues before writing files.
+6. Present a summary of what was organized and any fixes applied.
+
 ## Build workflow
 
-Follow this sequence for every component request. Do not skip phases. After each phase, present the output to the user and suggest concrete next steps.
+Follow this sequence for every new component request. Do not skip phases. After each phase, present the output to the user and suggest concrete next steps.
 
 ### Phase 1 — Clarify intent and design parameters
 
@@ -37,17 +67,18 @@ Parameter table format:
 
 Produce a working component with **no `<script>` block**. This isolates rendering and parameter substitution issues before adding interactivity.
 
-Deliver all four outputs together:
-1. **Component name** (max 32 chars; Chinese/English/digits/`-`/`_` only; unique per storyline).
-2. **Source code** — HTML + `<style>` in a single block. Use `$ParamName$` for every AI-supplied value.
-3. **AI supplementary prompt** — see [Prompt format](#ai-supplementary-prompt-format) below.
-4. **Paste instructions** — tell the user exactly which field each piece goes into in the Workshop editor.
+1. Create the component directory: `components/<component-name>/`
+2. Write `component.html` — HTML + `<style>` only. Use `$ParamName$` for every AI-supplied value.
+3. Write `ai_additional_prompt.md` — following the [prompt format](#ai-supplementary-prompt-format).
+4. Tell the user which Workshop editor field each file maps to:
+   - `component.html` → **Source code** field
+   - `ai_additional_prompt.md` → **AI supplementary prompt** field
 
 After delivering, suggest the user paste into Workshop and run a **playtest**. Explain that preview alone is insufficient — the real test is whether the AI invokes the component correctly in a live chat.
 
 ### Phase 3 — Add interactivity
 
-Only after the static version renders correctly in playtest, add a `<script>` block using bridge functions. Use the [safe default set](#safe-defaults) unless the user's requirements demand otherwise.
+Only after the static version renders correctly in playtest, add a `<script>` block to `component.html` using bridge functions. Use the [safe default set](#safe-defaults) unless the user's requirements demand otherwise.
 
 If the component has an input field, the trigger button **must** include `data-component-trigger="1"`.
 
@@ -59,7 +90,7 @@ After each change, suggest one of these next steps (pick whichever is most relev
 - **Robustness check**: "Let me verify parameter names match between source code, AI prompt, and invocation example."
 - **Debugging**: "If it's not rendering, paste the AI's raw output here and I'll diagnose the mismatch."
 
-When iterating, **modify the existing component** — do not regenerate from scratch unless the user explicitly asks.
+When iterating, **edit the existing files in place** — do not regenerate from scratch unless the user explicitly asks. Update `ai_additional_prompt.md` if parameters change.
 
 ### Debugging checklist
 
@@ -201,4 +232,10 @@ readFromLocal(key)             — returns stored value (use as arg)
 
 ### Complete example
 
-For a full working example (password gate with source, params, AI prompt, and script), see [EXAMPLE_PASSWORD_GATE.md](EXAMPLE_PASSWORD_GATE.md).
+For a full working example (password gate with source, params, AI prompt, and script), see [EXAMPLE_PASSWORD_GATE.md](EXAMPLE_PASSWORD_GATE.md). In practice this would be output as:
+
+```
+components/password-gate/
+├── component.html
+└── ai_additional_prompt.md
+```
