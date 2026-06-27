@@ -184,6 +184,8 @@ Prefer bridge functions over raw JS. One call per line. All selectors scoped to 
 
 If raw JS is detected (`const`, `function`, `if`, `for`, `document.`, `window.`), the component switches to an isolated iframe.
 
+> **In iframe mode (compiled `script.ts`), `saveToLocal` / `readFromLocal` / `getWorldInfo` are async (return Promises) — `await` them.** This and other reverse-engineered runtime behavior (cached avatar getters, the broader advanced-JS detector, the iframe CSP) are documented in [RUNTIME_INTERNALS.md](RUNTIME_INTERNALS.md). That file is unofficial and may be stale — verify before relying on it.
+
 #### Safe defaults
 
 Use these first: `setText` · `setValue` · `show` · `hide` · `addClass` · `removeClass` · `setStyle` · `progress` · `wait` · `requireInputEquals`
