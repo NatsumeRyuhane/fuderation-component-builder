@@ -57,6 +57,8 @@ The chunk is minified to one line; read it by grepping for the markers in
 | Param substitution regex | `\$(?!\{)` |
 | HTML sanitizer | `script\|iframe\|object\|embed` |
 | Render-mode dispatch | `story-inline-component-iframe` |
+| Auto-downscale to fit width | `autoScaleRoot` |
+| Iframe height reporting | `story-component-resize` |
 
 If a marker no longer matches, the runtime was rebuilt — re-fetch and re-read
 before trusting anything here.
@@ -148,14 +150,47 @@ connect-src 'none'; frame-src 'none';
 → **no networking** (`connect-src 'none'`: no fetch/XHR/WebSocket), no external
 scripts, no nested frames; images/media may load from `data:`/`blob:`/`http(s)`.
 
-### 6. Sanitization & parameter substitution
+### 6. Rendering & sizing (fluid width, content height, auto-downscale)
+
+DSL mode renders inline as `<div class="story-inline-component">` (no stylesheet
+rule for it exists — it flows at the message's content width). iframe mode mounts
+an iframe whose document fixes the layout:
+
+```css
+html, body { margin:0; padding:0; height:auto !important; }
+body { overflow:hidden !important; }
+#story-component-root { width:100%; max-width:100%; box-sizing:border-box; transform-origin:top left; }
+/* box-sizing:border-box is inherited by all descendants */
+```
+
+- **Width = the chat bubble's available width** (the iframe viewport). No fixed
+  width, no aspect ratio.
+- **Auto-downscale.** On every resize the runtime runs `autoScaleRoot()`: if your
+  outer element's natural width exceeds the viewport, the whole root is scaled
+  down — shrinking everything, so text/controls become tiny:
+
+  ```js
+  const childW = child.scrollWidth || child.offsetWidth   // outer wrapper natural width
+  const viewW  = documentElement.clientWidth || innerWidth // available bubble width
+  if (childW > viewW) { root.style.transform = 'scale(' + viewW / childW + ')'; root.style.width = childW + 'px' }
+  ```
+
+  Triggered by fixed px widths wider than the bubble, wide tables, `nowrap` long
+  strings, or any horizontal overflow.
+- **Height is content-driven and unbounded.** The iframe measures its content and
+  posts `{ type:'story-component-resize', id, height }`; the host sizes the iframe
+  to match (ResizeObserver + active polling + load/resize/transition/animation
+  listeners). No max-height, no aspect ratio. `body{overflow:hidden}` clips
+  horizontal overflow rather than scrolling it.
+
+### 7. Sanitization & parameter substitution
 
 - `$param$` substitution: `/\$(?!\{)([^$\n]{1,64})\$/g` — skips `${` (JS
   template literals are safe), max 64 chars between the `$`s, no newlines.
 - The component's HTML is stripped of `script|iframe|object|embed|link|meta|style`
   tags and inline `on*=` handlers before rendering.
 
-### 7. Could not confirm
+### 8. Could not confirm
 
 The chunk that converts the emitted `<div data-story-frame-doc>` into the actual
 `<iframe>` element was **not located** — no `sandbox`, `srcdoc`,
