@@ -9,35 +9,40 @@ A Workshop component is a **storyline-scoped widget** that renders inline in a s
 
 Common uses: info cards, task panels, mock login screens, progress bars, copy-to-clipboard buttons, quizzes, verification panels.
 
-## File output convention
+## Repository layout
 
-Every component gets its own directory. Use the component name (kebab-case for English, original for Chinese) as the directory name:
+This repo is a **one-component-per-repo template**. Author source in `src/` at
+the repo root; the build assembles a single importable `component.json`.
 
+```text
+src/
+├── markup.html      # HTML only               -> component.html
+├── styles.css       # styles                  -> component.css
+├── script.ts        # compiled w/ esbuild     -> component.script  (iframe mode)
+├── script.js        # OR verbatim passthrough -> component.script  (DSL mode)
+├── ai_prompt.md     # AI supplementary prompt -> component.ai_prompt
+└── meta.json        # { "name", "description" }
+component.json       # BUILD OUTPUT (generated, gitignored) — import into Workshop
 ```
-components/
-├── password-gate/
-│   ├── component.html          # source code (HTML + <style> + <script>)
-│   └── ai_additional_prompt.md # AI supplementary prompt
-├── info-card/
-│   ├── component.html
-│   └── ai_additional_prompt.md
-└── 登录验证/
-    ├── component.html
-    └── ai_additional_prompt.md
-```
 
-Create the `components/` directory at the project root if it does not exist. When creating or updating a component, always write both files.
+Use **either** `script.ts` **or** `script.js`, never both. Run `npm run build`
+(or `node scripts/build.mjs`) to (compile and) assemble `component.json`; the
+build validates the platform limits. `component.json` is generated and
+gitignored — it does not exist until you build. Import the JSON into Workshop:
+open the storyline → **Components** → import.
 
-### Importing preexisting components
+### Importing preexisting component code
 
-When the user provides an existing component (raw code, a single file, or unorganized files):
+When the user provides existing component code (raw HTML/CSS/JS, one combined
+block, or an exported `component.json`):
 
-1. Identify each distinct component by its `<$Name$>` invocation tag.
-2. Create a directory per component under `components/`.
-3. Split source code into `component.html` and the AI prompt into `ai_additional_prompt.md`.
-4. If the AI prompt is missing, generate one following the [prompt format](#ai-supplementary-prompt-format).
-5. Run the [debugging checklist](#debugging-checklist) on each component and fix issues before writing files.
-6. Present a summary of what was organized and any fixes applied.
+1. Split it into the `src/` files above — HTML → `markup.html`, `<style>` →
+   `styles.css`, `<script>` → `script.js` (or `script.ts`), the AI prompt →
+   `ai_prompt.md` — and set `name`/`description` in `meta.json`.
+2. If the AI prompt is missing, generate one following the [prompt format](#ai-supplementary-prompt-format).
+3. Run the [debugging checklist](#debugging-checklist) and fix issues.
+4. Run `npm run build` and confirm it passes validation.
+5. Present a summary of what was organized and any fixes applied.
 
 ## Build workflow
 
@@ -65,22 +70,23 @@ Parameter table format:
 
 ### Phase 2 — Generate a static component first
 
-Produce a working component with **no `<script>` block**. This isolates rendering and parameter substitution issues before adding interactivity.
+Produce a working component with **no script file**. This isolates rendering and parameter substitution issues before adding interactivity.
 
-1. Create the component directory: `components/<component-name>/`
-2. Write `component.html` — HTML + `<style>` only. Use `$ParamName$` for every AI-supplied value.
-3. Write `ai_additional_prompt.md` — following the [prompt format](#ai-supplementary-prompt-format).
-4. Tell the user which Workshop editor field each file maps to:
-   - `component.html` → **Source code** field
-   - `ai_additional_prompt.md` → **AI supplementary prompt** field
+1. Write `src/markup.html` and `src/styles.css`. Use `$ParamName$` for every AI-supplied value.
+2. Write `src/ai_prompt.md` — following the [prompt format](#ai-supplementary-prompt-format).
+3. Set `name` and `description` in `src/meta.json`.
+4. Run `npm run build` and confirm `component.json` is produced within limits.
 
-After delivering, suggest the user paste into Workshop and run a **playtest**. Explain that preview alone is insufficient — the real test is whether the AI invokes the component correctly in a live chat.
+After delivering, suggest the user import `component.json` into Workshop and run a **playtest**. Explain that preview alone is insufficient — the real test is whether the AI invokes the component correctly in a live chat.
 
 ### Phase 3 — Add interactivity
 
-Only after the static version renders correctly in playtest, add a `<script>` block to `component.html` using bridge functions. Use the [safe default set](#safe-defaults) unless the user's requirements demand otherwise.
+Only after the static version renders correctly in playtest, add a script using bridge functions:
 
-If the component has an input field, the trigger button **must** include `data-component-trigger="1"`.
+- **`src/script.js`** — passed through verbatim; write one bridge call per line to keep lightweight **DSL mode**. Prefer this for simple components, using the [safe default set](#safe-defaults).
+- **`src/script.ts`** — compiled by esbuild to an inline IIFE (always **iframe mode**). Use for complex logic. Treat bridge functions as ambient globals (declared in `types/bridge.d.ts`); never `import` them, and do not use `fetch`/networking.
+
+If the component has an input field, the trigger button **must** include `data-component-trigger="1"`. Re-run `npm run build` after changes.
 
 ### Phase 4 — Iterate
 
@@ -90,7 +96,7 @@ After each change, suggest one of these next steps (pick whichever is most relev
 - **Robustness check**: "Let me verify parameter names match between source code, AI prompt, and invocation example."
 - **Debugging**: "If it's not rendering, paste the AI's raw output here and I'll diagnose the mismatch."
 
-When iterating, **edit the existing files in place** — do not regenerate from scratch unless the user explicitly asks. Update `ai_additional_prompt.md` if parameters change.
+When iterating, **edit the existing `src/` files in place** — do not regenerate from scratch unless the user explicitly asks. Update `src/ai_prompt.md` if parameters change, and re-run `npm run build`.
 
 ### Debugging checklist
 
@@ -122,25 +128,34 @@ Inside source code, `$Param1$` placeholders receive values via literal string su
 
 ### Source code structure
 
-Single block: HTML, then `<style>`, then `<script>`:
+Workshop's editor uses one combined block (HTML, then `<style>`, then `<script>`).
+In this repo you author the equivalent as separate `src/` files, and the build
+maps them onto the export's `html` / `css` / `script` fields:
+
+- `src/markup.html` → the markup, with `$Param$` placeholders
+- `src/styles.css` → the `<style>` contents
+- `src/script.js` (verbatim, DSL mode) **or** `src/script.ts` (compiled, iframe mode) → the `<script>` contents
 
 ```html
+<!-- src/markup.html -->
 <div class="wrapper">
   <div class="title">$Title$</div>
-  <div class="body">$Content$</div>
+  <div class="body" data-result></div>
 </div>
-
-<style>
-.wrapper { border: 1px solid #3b82f6; border-radius: 14px; padding: 12px; }
-</style>
-
-<script>
-setText('[data-result]', '$Title$')
-show('[data-result]')
-</script>
 ```
 
-Keep width suitable for a chat bubble. Never use `fetch`, real auth, real payment, or networking.
+```css
+/* src/styles.css */
+.wrapper { border: 1px solid #3b82f6; border-radius: 14px; padding: 12px; }
+```
+
+```js
+// src/script.js
+setText('[data-result]', '$Content$')
+show('[data-result]')
+```
+
+Keep width suitable for a chat bubble. Never use `fetch`, real auth, real payment, or networking — the iframe CSP blocks network anyway.
 
 ### AI supplementary prompt format
 
@@ -253,10 +268,14 @@ other functions, not used on their own. Notes:
 
 ### Complete example
 
-For a full working example (password gate with source, params, AI prompt, and script), see [EXAMPLE_PASSWORD_GATE.md](EXAMPLE_PASSWORD_GATE.md). In practice this would be output as:
+For a full working example (password gate with params, AI prompt, and a bridge-function script), see [EXAMPLE_PASSWORD_GATE.md](EXAMPLE_PASSWORD_GATE.md). It shows the `src/` files and the resulting `component.json`:
 
 ```
-components/password-gate/
-├── component.html
-└── ai_additional_prompt.md
+src/
+├── markup.html
+├── styles.css
+├── script.js
+├── ai_prompt.md
+└── meta.json
+component.json   # build output
 ```
