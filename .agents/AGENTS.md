@@ -32,3 +32,4 @@ component.json     # build output (generated, gitignored) — import into Worksh
 - When the user provides existing component code, split it into the `src/` files before making changes.
 - Keep styles chat-bubble-friendly. No networking, no real auth, no real payment.
 - Run `npm run build` after changes and confirm it passes validation.
+- CI: pushing to `main` runs `.github/workflows/build.yml`, which rebuilds and commits `component.json` back to `main`; pull requests validate the build only. Do not hand-commit `component.json`.
