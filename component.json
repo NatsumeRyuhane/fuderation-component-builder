@@ -1,0 +1,18 @@
+{
+  "type": "fuderation_story_component",
+  "version": 1,
+  "exported_at": "",
+  "creator": {
+    "username": "",
+    "display_id": 0
+  },
+  "component": {
+    "name": "info-card",
+    "html": "<div class=\"info-card\">\n  <div class=\"info-card__title\">$Title$</div>\n  <div class=\"info-card__body\">$Body$</div>\n</div>",
+    "css": ".info-card {\n  max-width: 320px;\n  padding: 12px 14px;\n  border: 1px solid #3b82f6;\n  border-radius: 14px;\n  background: linear-gradient(180deg, #eff6ff, #ffffff);\n  font-family: ui-sans-serif, system-ui, sans-serif;\n}\n\n.info-card__title {\n  font-weight: 700;\n  color: #1d4ed8;\n}\n\n.info-card__body {\n  margin-top: 8px;\n  color: #334155;\n  white-space: pre-wrap;\n}",
+    "script": "",
+    "source": "",
+    "ai_prompt": "When you need to show a titled piece of information (a result, notice, or summary), use the \"info-card\" component.\nOutput format:\n<$info-card$>\n  <Title>short heading</Title>\n  <Body>the detail text</Body>\n</$info-card$>\nDo not omit the outer tags. Parameter names must match exactly.",
+    "description": "Starter component — a titled info card. Replace with your own."
+  }
+}
