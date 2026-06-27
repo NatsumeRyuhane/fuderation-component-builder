@@ -1,0 +1,19 @@
+.info-card {
+  max-width: 320px;
+  padding: 12px 14px;
+  border: 1px solid #3b82f6;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #eff6ff, #ffffff);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+.info-card__title {
+  font-weight: 700;
+  color: #1d4ed8;
+}
+
+.info-card__body {
+  margin-top: 8px;
+  color: #334155;
+  white-space: pre-wrap;
+}
