@@ -155,7 +155,7 @@ setText('[data-result]', '$Content$')
 show('[data-result]')
 ```
 
-Keep width suitable for a chat bubble. Never use `fetch`, real auth, real payment, or networking — the iframe CSP blocks network anyway.
+Components render at the **chat bubble's width with content-driven height** — design fluid (`width:100%` + `max-width` ~320–360px), avoid fixed px widths and horizontal overflow (the runtime scales over-wide components down), and don't assume a fixed height or aspect ratio. See [RUNTIME_INTERNALS.md → Rendering & sizing](RUNTIME_INTERNALS.md#6-rendering--sizing-fluid-width-content-height-auto-downscale) and the `frontend-design` skill's component constraints. Never use `fetch`, real auth, real payment, or networking — the iframe CSP blocks network anyway.
 
 ### AI supplementary prompt format
 

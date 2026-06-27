@@ -40,3 +40,14 @@ Interpret creatively and make unexpected choices that feel genuinely designed fo
 **IMPORTANT**: Match implementation complexity to the aesthetic vision. Maximalist designs need elaborate code with extensive animations and effects. Minimalist or refined designs need restraint, precision, and careful attention to spacing, typography, and subtle details. Elegance comes from executing the vision well.
 
 Remember: Claude is capable of extraordinary creative work. Don't hold back, show what can truly be created when thinking outside the box and committing fully to a distinctive vision.
+
+## Fuderation Workshop component constraints
+
+When the target is a Fuderation Workshop component (this repo), it renders inside a chat message — sized to the **bubble width with content-driven height**, not a fixed canvas. The runtime evidence is in the component-builder skill's [RUNTIME_INTERNALS.md](../fuderation-component-builder/RUNTIME_INTERNALS.md#6-rendering--sizing-fluid-width-content-height-auto-downscale). Design within these constraints:
+
+- **Fluid, mobile-first width.** Assume a narrow bubble (~320 px on mobile; wider on desktop). Outer wrapper: `width:100%` with `max-width` ~320–360 px. **Never a large fixed px width** — if the outer element is wider than the bubble, the runtime scales the *entire* component down (`transform: scale`), making everything tiny.
+- **No horizontal overflow.** Wrap text (`overflow-wrap:anywhere`/`word-break`), avoid `white-space:nowrap` long strings and wide/fixed tables, use responsive grids. Overflow triggers the same downscale.
+- **Content-driven height.** No fixed heights, no `vh`/viewport units, no aspect-ratio assumptions — the iframe auto-grows to fit; tall is fine.
+- **Relative units + border-box.** Prefer `%`/`rem`/`clamp()`/flex/grid; `box-sizing:border-box` is already enforced, so padding won't blow out width.
+- **Readable type & touch targets.** Body ~13–15 px; interactive targets ≥ ~40 px (mobile-first).
+- **Self-contained.** No networking, no external fonts/scripts/CDN, no real auth/payment — inline everything (the iframe CSP blocks network and external sources).
