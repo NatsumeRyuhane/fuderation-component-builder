@@ -171,18 +171,26 @@ If raw JS is detected (`const`, `function`, `if`, `for`, `document.`, `window.`)
 
 #### Safe defaults
 
-Use these first: `setText` · `show` · `hide` · `addClass` · `removeClass` · `setStyle` · `progress` · `wait` · `requireInputEquals`
+Use these first: `setText` · `setValue` · `show` · `hide` · `addClass` · `removeClass` · `setStyle` · `progress` · `wait` · `requireInputEquals`
 
 #### DOM functions
 
 ```
 setText(selector, text)              — set element text content
-setValue(selector, value)            — set input value; falls back to text
-show(selector)                       — display element (block)
+setValue(selector, value)            — set input value; writes src for img/video/audio/source; else falls back to text
+show(selector, display?)             — display element (default block)
 hide(selector)                       — hide element
 addClass(selector, className)        — add CSS class
 removeClass(selector, className)     — remove CSS class
-setStyle(selector, prop, value)      — set one CSS property
+setStyle(selector, prop, value)      — set one allow-listed (safe) CSS property
+```
+
+**Media & avatars**: to set an image/media source, use `setValue` — not
+`setStyle`. `src` is an element attribute, not a CSS property:
+
+```
+setValue('#avatar-img', getCharAvatar() || getUserAvatar())   // correct
+setStyle('#avatar-img', 'src', url)                           // wrong
 ```
 
 #### Flow control
@@ -205,10 +213,23 @@ changeMsg(text)                — replace assistant message (persisted)
 tempAppendMsg(text)            — append (local only, not persisted)
 tempChangeMsg(text)            — replace (local only, not persisted)
 getMsgContent()                — returns current message text (use as arg)
+getCharAvatar()                — current storyline character avatar URL (use as arg)
+getUserAvatar()                — current logged-in user avatar URL (use as arg)
+getWorldInfo(trigger)          — enabled world-book entries matching trigger; returns array (use as arg)
 openUrl(url)                   — http/https only
 saveToLocal(key, value)        — IndexedDB; key max 128 chars
 readFromLocal(key)             — returns stored value (use as arg)
 ```
+
+Getter functions (`getMsgContent`, `getCharAvatar`, `getUserAvatar`,
+`getWorldInfo`, `readFromLocal`) are designed to be passed as arguments to
+other functions, not used on their own. Notes:
+- Avatar values may be an `http`/`https` URL, a site-relative path, `blob:`, or
+  `data:`. A `data:` URL renders offline inside the iframe; a remote URL only
+  works if the browser can reach it.
+- `getWorldInfo` returns an **array** of matched, enabled world-book entries.
+  When passed to a text function (`setText`, `setValue`, `fillInput`,
+  `appendMsg`, `changeMsg`) the array is auto-joined by newlines.
 
 ### Component editor fields
 
