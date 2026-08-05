@@ -92,3 +92,7 @@ npm run build      # 生成 ./component.json
 - 设计令牌与样式指南：
   [`.agents/skills/frontend-design/`](.agents/skills/frontend-design/)。
 - 官方指南：<https://chat.fuderation.com/guide#component-guide-section-1>。
+
+## 许可证
+
+本项目以 [MIT 许可证](LICENSE) 发布，允许在保留许可声明的前提下用于开源或私有产品。
