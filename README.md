@@ -98,6 +98,56 @@ npm run preview -- --open --port 5199
 
 用 `npm run typecheck` 对 TypeScript 源码做类型检查。
 
+## 构建时压缩了什么
+
+**只有 `src/script.ts` 会被压缩。** 其余源文件全部原样写入 `component.json`，构建只做
+首尾去空白（`.trim()`），不删注释、不合并空格。
+
+| 源文件 | 构建处理 | 是否压缩 |
+|---|---|---|
+| `src/markup.html` | 仅 `.trim()` | **否** |
+| `src/styles.css` | 仅 `.trim()` | **否** |
+| `src/script.ts` | esbuild 打包为 IIFE（`minify: true`） | **是**（去空白 + 精简语法 + 混淆标识符） |
+| `src/script.js` | 仅 `.trim()`，原样透传 | **否**（有意为之，见下） |
+| `src/ai_prompt.md` | 仅 `.trim()` | 否 |
+
+由此有两个务必记住的后果：
+
+1. **所有字符预算都按未压缩的源码计算** —— 合计 20000 字符的上限、以及 DSL 模式那
+   1000 字符的 CSS 上限，统计的都是你写下的原文，注释和缩进照算。CSS 的 1000 字符上限
+   尤其容易踩：一份注释写得很足的样式表，可能光靠注释和空白就越界，然后被**静默截断**。
+   要压缩就自己在源码里压——构建不会替你做。
+2. **`script.ts` 里的局部变量名会被混淆**，因为 esbuild 输出的是打包后的 IIFE。桥接函数
+   是运行时注入的全局量，esbuild 无从重命名，所以 DSL 调用始终完好。
+
+### 为什么 `script.js` 不压缩
+
+不是漏了，是压了会坏。`minify: true` 会启用 esbuild 的 `minifySyntax`，把相邻的表达式
+语句用逗号合并：
+
+```js
+// 源码：4 条独立语句
+setText('[data-name]', '$Name$');
+addClass('[data-card]', 'is-open');
+
+// minify: true 之后：1 条语句
+setText("[data-name]","$Name$"),addClass("[data-card]","is-open");
+```
+
+运行时判定「纯 DSL」时按 `[\r\n;]+` 切分语句，再要求每条都形如 `名字(...)`。合并后的这
+一行**仍然通过检查**（名字是白名单里的 `setText`），于是组件照旧留在 DSL 模式，然后把
+整串当作一次 `setText` 调用去解析参数——结果是静默跑错，而不是报错。
+
+而且 esbuild 默认会把非 ASCII 转成 `\uXXXX` 转义（`toast('欢迎')` → `toast("\u6B22\u8FCE")`）。
+DSL 参数由运行时的字符串解析器读取，不是 JS 引擎，未必会还原转义——中文可能原样显示成
+转义序列。（该行为可用 `charset: 'utf8'` 规避。）
+
+只做 `minifyWhitespace` 是安全的（分号保留，逐条语句仍匹配 DSL 文法），但**没有意义**：
+纯 DSL 脚本里没有任何声明，因此没有标识符可混淆，能省的只有注释和换行——在 20000 字符
+的预算面前可以忽略。反过来说，如果一个 `.js` 文件复杂到值得压缩，它必然含有
+`const`/`function`/`=>`，那就会命中原生 JS 检测直接进 iframe 模式——这种代码本来就该写成
+`script.ts`，而那条路径**是**压缩的。
+
 ## 自动构建（GitHub Actions）
 
 仓库内置工作流 [`.github/workflows/build.yml`](.github/workflows/build.yml)：
@@ -127,7 +177,9 @@ npm run preview -- --open --port 5199
 **进入 iframe 模式的条件**（满足其一）：
 
 1. 脚本命中原生 JS 检测（`const`/`function`/`=>`/`document.`/`setTimeout(` 等）；
-2. 脚本存在非白名单调用，或调用数超过 32 条；
+2. 脚本的**前 32 条语句**中存在非白名单调用（32 是**校验窗口**，不是数量上限——
+   运行时先取前 32 条再逐条校验，因此全为白名单调用的 40 条脚本照样留在 DSL 模式，
+   第 33 条起既不校验也不保证执行）；
 3. *（无脚本时）* HTML 含 `<html`/`<head`/`<body`；
 4. *（无脚本时）* **CSS 超过 1000 字符**；
 5. *（无脚本时）* CSS 含 `@media`/`@supports`/`@keyframes`/`@font-face` 等 at-rule；
@@ -145,8 +197,9 @@ npm run preview -- --open --port 5199
 - `markup.html` 不可为空——导入端会丢弃没有 html 的组件。
 - `description` ≤ 120 字符；`ai_prompt` ≤ 1000 字符。
   `ai_prompt` 为空时，AI 根本不会被告知该组件的存在。
-- `html` + `css` + `script` 合计 ≤ 20000 字符。
-- DSL 模式额外限制：最多 1000 字符 CSS。桥接调用的 32 条是**校验窗口**而非上限——
+- `html` + `css` + `script` 合计 ≤ 20000 字符。**按未压缩的源码计**——除 `script.ts`
+  外构建不做任何压缩，注释与缩进照算，详见[构建时压缩了什么](#构建时压缩了什么)。
+- DSL 模式额外限制：最多 1000 字符 CSS（同样是未压缩的原文）。桥接调用的 32 条是**校验窗口**而非上限——
   运行时只校验前 32 条语句，多出来的不校验也不保证执行，别依赖。
 - 禁止真实联网、真实登录、真实支付。**也不能加载外部字体**
   （iframe CSP 的 `font-src` 只允许 `data:`，Google Fonts 会静默失败）。

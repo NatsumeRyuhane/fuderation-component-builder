@@ -4,12 +4,18 @@
 // This repo is a one-component-per-repo template. The build output is the exact
 // importable export envelope (type "fuderation_story_component", version 1).
 //
-//   src/markup.html   -> component.html
-//   src/styles.css    -> component.css
-//   src/script.ts     -> component.script  (compiled with esbuild; runs in iframe mode)
-//   src/script.js     -> component.script  (passed through verbatim; keeps DSL mode)
+//   src/markup.html   -> component.html    (trim only — NOT minified)
+//   src/styles.css    -> component.css     (trim only — NOT minified)
+//   src/script.ts     -> component.script  (esbuild, minified; runs in iframe mode)
+//   src/script.js     -> component.script  (trim only — NOT minified; mode depends
+//                                            on contents, see analyseMode)
 //   src/ai_prompt.md  -> component.ai_prompt
 //   src/meta.json     -> component.name / component.description
+//
+// script.ts is the ONLY thing this build minifies. html/css ship exactly as
+// authored, so every char budget in LIMITS counts your comments and indentation
+// — which matters most for LIMITS.dslCss, where the overflow is dropped
+// silently. Minify the source yourself if you need the headroom.
 //
 // Usage: node scripts/build.mjs [projectDir]   (default: cwd)
 //
@@ -79,7 +85,15 @@ async function readIf(p) {
 
 // .ts -> compiled, minified IIFE (classic inline script, no ESM import/export).
 // Compiled output always trips the runtime's advanced-JS detector -> iframe mode.
+// Only locals are mangled; bridge fns are injected globals esbuild cannot rename.
+//
 // .js -> verbatim, so simple `fn('a','b')` DSL scripts keep lightweight DSL mode.
+// Deliberately NOT minified: esbuild's minifySyntax comma-merges adjacent
+// expression statements (`a();b();` -> `a(),b()`), and Se() still accepts that
+// single line as pure DSL (the name is whitelisted) before mis-parsing the whole
+// thing as one call — a silent wrong result, not an error. minifyWhitespace
+// alone would be safe but pointless: a pure-DSL script declares nothing, so
+// there are no identifiers to mangle. See README "构建时压缩了什么".
 async function buildScript(esbuild, SRC) {
   const tsPath = path.join(SRC, 'script.ts');
   const jsPath = path.join(SRC, 'script.js');
