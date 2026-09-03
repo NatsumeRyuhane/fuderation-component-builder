@@ -13,5 +13,11 @@
     "extractedBytes": 15716,
     "extractedSha256": "ff50ae40fc47ceb498ae188141c294f109f5bd7280b3cb6a64529287dd5740bb"
   },
+  "markdownSanitizer": {
+    "url": "https://chat.fuderation.com/assets/useMarkdown-B9P8FUeE.js",
+    "sourceSha256": "1fe04a4db2339cd255eb2eed4f16d0f03b042cfa64ac07ae8625edf66b197e39",
+    "sourceBytes": 599429,
+    "extractedSha256": "f22e73a747a1745b12a085121da51dad81f5ccad57ffc3ea707d655aab83eb3f"
+  },
   "fetchedAt": "2026-09-03"
 }

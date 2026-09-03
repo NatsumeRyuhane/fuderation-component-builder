@@ -285,3 +285,22 @@ h2 {
 .dropzone-icon { font-size: 30px; color: #2563eb; line-height: 1; }
 .dropzone-title { margin-top: 10px; font-weight: 600; color: rgb(var(--text-strong)); }
 .dropzone-hint { margin-top: 3px; font-size: 12px; color: rgb(var(--text-tertiary)); }
+
+/* Message-content notice — deliberately outside the bubble, so the bubble shows
+   exactly what the client shows and this says what was taken out on the way. */
+.md-notice {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border: 1px solid var(--warn-border, #f0c36d);
+  border-left-width: 3px;
+  border-radius: 6px;
+  background: var(--warn-bg, #fdf6e3);
+  color: var(--warn-fg, #6b5320);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.md-notice strong { flex: none; font-weight: 600; }
+.md-notice-body { flex: 1; overflow-wrap: anywhere; font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace); }

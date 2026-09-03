@@ -8,7 +8,7 @@ import * as runtime from '../../vendor/storyComponents.js';
 import { createHost, listenForFrameActions } from './host.js';
 import { mountFrames, listenForFrameResize, requestResize } from './frame.js';
 import { runDsl, statements, BRIDGE_FNS } from './dsl.js';
-import { renderMarkdown } from './markdown.js';
+import { renderMarkdown, describeRemovals } from './markdown.js';
 
 // Runtime exports, by their minified names (see RUNTIME_INTERNALS.md).
 const parseMessage = runtime.p;   // Pe: text + components -> nodes
@@ -53,6 +53,7 @@ const el = {
   message: $('[data-message]'), rawField: $('[data-raw-field]'),
   composed: $('[data-composed]'), rawToggle: $('[data-raw-toggle]'),
   sourceChip: $('[data-source-chip]'), resetSrc: $('[data-reset-src]'),
+  mdNotice: $('[data-md-notice]'), mdNoticeBody: $('[data-md-notice-body]'),
   fileInput: $('[data-file-input]'), dropzone: $('[data-dropzone]'),
 };
 
@@ -259,12 +260,18 @@ function render() {
   el.charName.textContent = '角色';
   el.charAvatar.src = state.charAvatar;
 
+  const mdRemoved = [];
+
   for (const node of nodes) {
     if (node.type === 'markdown') {
       if (!String(node.text).trim()) continue;
       const box = document.createElement('div');
       box.className = 'markdown-body';
-      box.innerHTML = renderMarkdown(node.text);
+      // Rendered exactly as the client renders it, dropped tags and all. What
+      // the pipeline removed is reported below the bubble, never patched over.
+      const { html, removed } = renderMarkdown(node.text);
+      box.innerHTML = html;
+      mdRemoved.push(...removed);
       el.bubble.appendChild(box);
       continue;
     }
@@ -283,6 +290,12 @@ function render() {
     });
     el.bubble.appendChild(holder);
   }
+
+  // Outside the render area on purpose: the bubble shows what the client shows,
+  // and this strip says what the client silently took out on the way there.
+  const summary = describeRemovals(mdRemoved);
+  el.mdNotice.hidden = !summary;
+  el.mdNoticeBody.textContent = summary;
 
   mountFrames(el.bubble, getFrameDoc);
   teardownActions = listenForFrameActions(host);

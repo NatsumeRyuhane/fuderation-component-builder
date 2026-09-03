@@ -344,6 +344,49 @@ The sanitizer also decodes HTML entities before URL checks
 (`&#106;avascript:` won't slip through) and strips `<script|style|iframe|object|
 embed|template|noscript|math>` blocks wholesale in the no-DOMPurify fallback.
 
+### The prose around your component is sanitized by a *different*, laxer pipeline
+
+Everything above is the **component** path (`ye()` in `storyComponents.js`). The
+markdown prose in the same message is handled by `useMarkdown`, which is not the
+same policy and is easy to confuse with it. Verified against
+`assets/useMarkdown-B9P8FUeE.js`; both stages are extracted into
+`vendor/markdown-sanitize.json` and hashed.
+
+Stage 1 — DOMPurify with a **much** more permissive config than the component
+one: 71 tags including `form`, `button`, `input`, `select`, `textarea`, `svg`
+and `path` (the component path *forbids* `form`), and
+
+```js
+ADD_ATTR: ["onclick", "onerror", "ontoggle"]
+```
+
+which admits three inline event handlers outright.
+
+Stage 2 — a regex pass over the sanitized output that takes them back out:
+
+- `onclick` survives **only** if its body matches one of twelve site callbacks —
+  `window.copyCodeBlock(this)`, `window.runHtmlCode(this)`,
+  `window.sendQuickReply(this)`, `this.classList.toggle('revealed')`,
+  `window.handleExternalLink(event, '…')`, `window.gotoStoryline(<n>, <bool>)`,
+  the `openChatListItem`/`closeChatListItem` pair, the three `book*` page-flip
+  helpers, and `window.open(this.src, '_blank')`.
+- `onerror` survives only if it contains `this.onerror = null`.
+- `onload`, `onmouseover`, `onmouseout`, `onmouseenter`, `onmouseleave`,
+  `onfocus`, `onblur`, `onkeydown`, `onkeyup`, `onkeypress`, `onsubmit`,
+  `onchange` and `oninput` are removed unconditionally.
+
+**Stage 2 is why stage 1 looks so lax.** The pair exists so the client's own
+generated markup — the code-block copy button, spoiler reveals, storyline links —
+keeps working, while author- or model-written handlers do not.
+
+Two practical consequences:
+
+1. Don't reason about prose from the component allowlist, or vice versa. A
+   `<form>` in prose survives; the same `<form>` inside a DSL component does not.
+2. `changeMsg()`/`appendMsg()` write into the **prose** path, so what comes back
+   is filtered by these rules, not by §6's. `npm run preview` reproduces both
+   and reports anything either stage drops.
+
 ## 7. Parsing: component tags, parameters, escaping
 
 ### Component tag

@@ -22,7 +22,8 @@ Workshop 自带的预览把所有组件都塞进 iframe、不替换 `$参数$`�
 | iframe 文档、CSP、高度回报协议 | **官方运行时** |
 | 注入的 `[组件使用说明]` 系统提示词 | **官方运行时** |
 | 气泡与 Markdown 样式 | **官方样式表**，见 `vendor/site-chat.css` |
-| Markdown 渲染 | markdown-it，配置与站点一致：`{html:true, linkify:true, breaks:true}`，输出再过一遍 DOMPurify（`html:true` 会原样放行 HTML，而组件可以通过 `appendMsg`/`changeMsg` 把任意标记写进消息里）|
+| Markdown 渲染 | markdown-it，配置与站点一致：`{html:true, linkify:true, breaks:true}` |
+| 正文消毒（两道） | **官方配置**，见 `vendor/markdown-sanitize.json` |
 | 挂载 iframe、响应高度回报 | 我们写的 —— 站点的挂载代码不在任何可达 chunk 里 |
 | DSL 解释器与点击绑定 | 我们写的，同上（[`dsl.js`](dsl.js)） |
 | 宿主：toast、fillInput、changeMsg、存储、世界书 | 我们写的模拟（[`host.js`](host.js)） |
@@ -59,6 +60,26 @@ Workshop 自带的预览把所有组件都塞进 iframe、不替换 `$参数$`�
 把组件放进代码块、或者故意写错标签。
 
 组件调用 `changeMsg()` 时会自动切到原文模式，因为那时候消息就是组件自己写的。
+
+### 正文消毒提示
+
+**气泡里显示的就是真实客户端会显示的内容——包括被删掉的部分。** 预览不会替你补回任何东西。
+
+站点渲染聊天正文时跑两道，和组件的消毒规则完全不同：
+
+1. `DOMPurify.sanitize(html, config)`，配置相当宽松——71 个标签（含 `form` / `button` /
+   `input` / `svg`），并且用 `ADD_ATTR` **放行** `onclick` / `onerror` / `ontoggle`；
+2. 一道正则，再把这些处理器剥掉，**除非**命中站点自己的 12 个回调
+   （`window.copyCodeBlock(this)`、`this.classList.toggle('revealed')` 等），
+   `onerror` 只在含 `this.onerror = null` 时保留，另外
+   `onload` / `onmouseover` / `onsubmit` 等一律删除。
+
+第二道正是第一道看起来那么松的原因：代码块的复制按钮
+`<pre onclick="window.copyCodeBlock(this)">` 靠它活下来，而攻击者写的 `onclick` 活不下来。
+
+两道规则都从线上 chunk 里抽出来存进 `vendor/markdown-sanitize.json` 并做了 SHA-256 固定，
+所以这是**复现**而不是猜测。凡是被这条管线拿掉的东西，都会在气泡**下方**（而不是气泡里）
+列出来——你看到的渲染结果和线上一致，同时知道路上少了什么。
 
 ### 聊天输入框
 

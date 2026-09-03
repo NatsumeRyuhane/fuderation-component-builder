@@ -57,6 +57,77 @@ async function resolveRuntimeUrl() {
   throw new Error('no storyComponents-*.js reference found in any index chunk');
 }
 
+// ── markdown sanitiser ───────────────────────────────────────────────────────
+// Chat prose is NOT rendered raw. useMarkdown runs a two-stage pipeline:
+//   1. DOMPurify.sanitize(html, config) — a permissive allowlist that keeps
+//      onclick/onerror/ontoggle via ADD_ATTR, unlike the component sanitiser;
+//   2. a regex pass that then strips those handlers again unless they match one
+//      of ~12 site-provided callbacks (window.copyCodeBlock(this) and friends),
+//      keeps onerror only when it contains `this.onerror = null`, and removes a
+//      fixed list of other handlers unconditionally.
+// Stage 2 is why stage 1 looks so lax. Reproducing only one of them gives a
+// preview that is wrong in one direction or the other, so both are extracted.
+
+async function resolveMarkdownUrl() {
+  const shell = (await get(`${ORIGIN}/`)).toString('utf8');
+  const indexes = [...shell.matchAll(/\/assets\/index-[A-Za-z0-9_-]+\.js/g)].map((m) => m[0]);
+  for (const idx of [...new Set(indexes)]) {
+    const manifest = (await get(`${ORIGIN}${idx}`)).toString('utf8');
+    const hit = manifest.match(/useMarkdown-[A-Za-z0-9_-]+\.js/);
+    if (hit) return { url: `${ORIGIN}/assets/${hit[0]}`, via: idx };
+  }
+  throw new Error('no useMarkdown-*.js reference found in any index chunk');
+}
+
+/** Pull the DOMPurify config object literal out of the minified chunk. */
+function extractSanitizeConfig(js) {
+  const start = js.indexOf('{ALLOWED_TAGS:');
+  if (start < 0) throw new Error('markdown sanitiser config not found (ALLOWED_TAGS)');
+  let depth = 0;
+  let end = start;
+  for (; end < js.length; end += 1) {
+    if (js[end] === '{') depth += 1;
+    else if (js[end] === '}' && --depth === 0) break;
+  }
+  const literal = js.slice(start, end + 1);
+
+  const list = (key) => {
+    const m = literal.match(new RegExp(`${key}:\\[([^\\]]*)\\]`));
+    return m ? [...m[1].matchAll(/"([^"]*)"/g)].map((x) => x[1]) : [];
+  };
+  const uri = literal.match(/ALLOWED_URI_REGEXP:\/((?:[^/\\]|\\.)+)\//);
+
+  return {
+    ALLOWED_TAGS: list('ALLOWED_TAGS'),
+    ALLOWED_ATTR: list('ALLOWED_ATTR'),
+    ADD_ATTR: list('ADD_ATTR'),
+    ALLOW_DATA_ATTR: /ALLOW_DATA_ATTR:!?0|ALLOW_DATA_ATTR:(?:true|!0)/.test(literal)
+      ? !/ALLOW_DATA_ATTR:(?:false|!1)/.test(literal)
+      : true,
+    ALLOWED_URI_REGEXP: uri ? uri[1] : null,
+  };
+}
+
+/** Pull stage 2 — the event-handler whitelist and the blanket strip list. */
+function extractHandlerRules(js) {
+  const m = js.match(/function \w+\(\w+\)\{const \w+=\[(\/[\s\S]*?)\];return/);
+  if (!m) throw new Error('markdown handler post-pass not found');
+  const allow = [...m[1].matchAll(/\/((?:[^/\\]|\\.)+)\/i/g)].map((x) => x[1]);
+
+  const body = js.slice(js.indexOf(m[0]), js.indexOf(m[0]) + 2000);
+  const onerror = body.match(/onerror[\s\S]{0,120}?\/((?:[^/\\]|\\.)*onerror[^/\\]*)\//);
+  const blanket = body.match(/on\(\?:((?:load|[a-z|]+)+)\)/);
+
+  if (!allow.length) throw new Error('markdown handler whitelist came back empty');
+  if (!blanket) throw new Error('markdown blanket handler strip list not found');
+
+  return {
+    onclickAllow: allow,
+    onerrorAllow: onerror ? onerror[1] : 'this\\.onerror\\s*=\\s*null',
+    alwaysStrip: blanket[1].split('|'),
+  };
+}
+
 // ── chat/markdown CSS subset ─────────────────────────────────────────────────
 // The app stylesheet is ~490 KB of mostly Tailwind utilities. The preview only
 // needs the design tokens, the chat bubble rules and the markdown-body rules, so
@@ -153,9 +224,24 @@ async function update() {
     ' * Subset: design tokens + .chat-msg-* / .markdown-body rules (light theme).\n' +
     ' * Regenerate with: npm run vendor:runtime -- --update\n */\n';
 
+  const { url: mdUrl } = await resolveMarkdownUrl();
+  const mdBytes = await get(mdUrl);
+  const mdJs = mdBytes.toString('utf8');
+  const sanitizer = {
+    _comment:
+      'Extracted from Fuderation\'s useMarkdown chunk — third-party, NOT covered by this ' +
+      'repo LICENSE. See vendor/README.md. Stage 1 is the DOMPurify config; stage 2 re-strips ' +
+      'the handlers stage 1 deliberately admits. Regenerate with: npm run vendor:runtime -- --update',
+    source: mdUrl,
+    config: extractSanitizeConfig(mdJs),
+    handlers: extractHandlerRules(mdJs),
+  };
+  const sanitizerText = JSON.stringify(sanitizer, null, 2) + '\n';
+
   const prev = existsSync(LOCK) ? JSON.parse(await readFile(LOCK, 'utf8')) : null;
   const cssText = header + subset + '\n';
   const cssSha = sha256(Buffer.from(cssText, 'utf8'));
+  const sanitizerSha = sha256(Buffer.from(sanitizerText, 'utf8'));
 
   // Stage every file, then rename into place. A plain writeFile can be
   // interrupted mid-stream and leave a truncated vendor file behind; a rename
@@ -166,6 +252,7 @@ async function update() {
   await stage([
     [path.join(VENDOR, 'storyComponents.js'), bytes],
     [path.join(VENDOR, 'site-chat.css'), cssText],
+    [path.join(VENDOR, 'markdown-sanitize.json'), sanitizerText],
     [
       LOCK,
       JSON.stringify(
@@ -187,6 +274,12 @@ async function update() {
           // preview serves this file directly, so verify() has to check it.
           extractedSha256: cssSha,
         },
+        markdownSanitizer: {
+          url: mdUrl,
+          sourceSha256: sha256(mdBytes),
+          sourceBytes: mdBytes.length,
+          extractedSha256: sanitizerSha,
+        },
         fetchedAt: new Date().toISOString().slice(0, 10),
       },
         null,
@@ -199,6 +292,11 @@ async function update() {
   console.log(`  sha256 ${hash}  (${bytes.length} bytes)`);
   console.log(`✓ extracted chat CSS from ${cssUrl}`);
   console.log(`  ${subset.length} of ${cssBytes.length} bytes kept`);
+  console.log(`✓ extracted markdown sanitiser from ${mdUrl}`);
+  console.log(
+    `  ${sanitizer.config.ALLOWED_TAGS.length} tags, ${sanitizer.config.ALLOWED_ATTR.length} attrs, ` +
+      `${sanitizer.handlers.onclickAllow.length} whitelisted onclick handlers`,
+  );
 
   const prevHash = prev?.runtime?.sha256 ?? prev?.sha256;
   if (prevHash && prevHash !== hash) {
@@ -245,8 +343,25 @@ async function verify() {
     console.warn('!  lockfile predates extracted-CSS hashing — re-run with --update to pin it');
   }
 
+  const sanFile = path.join(VENDOR, 'markdown-sanitize.json');
+  const sanExpected = lock.markdownSanitizer?.extractedSha256;
+  if (sanExpected) {
+    if (!existsSync(sanFile)) {
+      console.error('✗ vendor/markdown-sanitize.json is missing — run with --update');
+      process.exit(1);
+    }
+    const sanHash = sha256(await readFile(sanFile));
+    if (sanHash !== sanExpected) {
+      console.error('✗ vendor/markdown-sanitize.json does not match the lockfile');
+      console.error(`   expected ${sanExpected}`);
+      console.error(`   actual   ${sanHash}`);
+      process.exit(1);
+    }
+  }
+
   console.log(`✓ runtime matches lockfile (${expected.slice(0, 16)}…, fetched ${lock.fetchedAt})`);
   if (cssExpected) console.log(`✓ site-chat.css matches lockfile (${cssExpected.slice(0, 16)}…)`);
+  if (sanExpected) console.log(`✓ markdown-sanitize.json matches lockfile (${sanExpected.slice(0, 16)}…)`);
 }
 
 const args = process.argv.slice(2);

@@ -19,7 +19,27 @@ it and use `npm run vendor:runtime -- --update` to fetch it locally instead.
 |---|---|
 | `storyComponents.js` | `assets/storyComponents-*.js`, unmodified |
 | `site-chat.css` | A subset of `assets/main-*.css` — the design tokens plus the `.chat-msg-*`, `.chat-bubble-*` and `.markdown-body` rules (light theme only), so the preview's bubble and prose match the real client |
-| `runtime.lock.json` | Resolved URLs, SHA-256 of both files, byte counts and fetch date |
+| `markdown-sanitize.json` | The chat-prose sanitiser extracted from `assets/useMarkdown-*.js` — the DOMPurify config plus the event-handler post-pass (see below) |
+| `runtime.lock.json` | Resolved URLs, SHA-256 of every file (source *and* extracted), byte counts and fetch date |
+
+### Why the markdown sanitiser is vendored as data
+
+Chat prose is not rendered raw, and it is **not** sanitised the way component
+markup is. `useMarkdown` runs two stages:
+
+1. `DOMPurify.sanitize(html, config)` with a permissive allowlist — 71 tags
+   including `form`, `button`, `input` and `svg`, and `ADD_ATTR` admitting
+   `onclick`, `onerror` and `ontoggle`, none of which the component sanitiser
+   permits.
+2. A regex pass that strips those same handlers again unless they match one of
+   twelve site-provided callbacks (`window.copyCodeBlock(this)`,
+   `this.classList.toggle('revealed')`, the book page-flip helpers …), keeps
+   `onerror` only when it contains `this.onerror = null`, and unconditionally
+   removes `onload`, `onmouseover`, `onsubmit` and ten others.
+
+Stage 2 is why stage 1 looks so lax. Reproducing either one alone gives a
+preview that is wrong in one direction or the other, so both are extracted
+mechanically rather than transcribed, and hashed like everything else here.
 
 `storyComponents.js` is byte-identical to what the site serves — no patching, no
 reformatting. The preview tool leaves it untouched and instead redirects its two

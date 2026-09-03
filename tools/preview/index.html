@@ -52,6 +52,12 @@
       </div>
     </div>
 
+    <div class="md-notice" data-md-notice hidden>
+      <strong>正文经过站点的消毒管线</strong>
+      <span class="md-notice-body" data-md-notice-body></span>
+      <span class="tip" title="气泡里显示的就是真实客户端会显示的内容——包括被删掉的部分。站点渲染聊天正文时会跑两道：先用一份宽松的 DOMPurify 配置（放行 onclick / onerror / ontoggle），再用正则把这些处理器重新剥掉，只保留站点自己的 12 个回调。这里只告诉你被拿掉了什么，不会替你补回去。">?</span>
+    </div>
+
     <div class="composer">
       <div class="composer-label">
         聊天输入框
