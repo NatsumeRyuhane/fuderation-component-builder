@@ -9,7 +9,7 @@
 // bytes we vendored. A hash change is also the signal that
 // .agents/skills/fuderation-component-builder/RUNTIME_INTERNALS.md may be stale.
 
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile, rename, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
@@ -24,10 +24,23 @@ const UA =
 
 const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
 
+const FETCH_TIMEOUT_MS = 30_000;
+
 async function get(url) {
-  const res = await fetch(url, { headers: { 'User-Agent': UA } });
-  if (!res.ok) throw new Error(`GET ${url} -> ${res.status} ${res.statusText}`);
-  return Buffer.from(await res.arrayBuffer());
+  // Without a signal, a response whose body never completes leaves `--update`
+  // hanging forever.
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { headers: { 'User-Agent': UA }, signal: ac.signal });
+    if (!res.ok) throw new Error(`GET ${url} -> ${res.status} ${res.statusText}`);
+    return Buffer.from(await res.arrayBuffer());
+  } catch (err) {
+    if (err?.name === 'AbortError') throw new Error(`GET ${url} timed out after ${FETCH_TIMEOUT_MS}ms`);
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // The SPA shell preloads an index-*.js manifest which names every lazy chunk.
@@ -107,6 +120,24 @@ async function resolveCssUrl() {
   return `${ORIGIN}${m[0]}`;
 }
 
+// Write each [target, contents] pair to a sibling temp file, then rename them
+// into place in order. Renames within a directory are atomic, so no reader ever
+// sees a half-written vendor file. Staged files are removed if anything throws.
+async function stage(entries) {
+  const tmps = entries.map(([target]) => `${target}.tmp-${process.pid}`);
+  try {
+    for (const [i, [, contents]] of entries.entries()) {
+      await writeFile(tmps[i], contents);
+    }
+    for (const [i, [target]] of entries.entries()) {
+      await rename(tmps[i], target);
+    }
+  } catch (err) {
+    await Promise.all(tmps.map((t) => rm(t, { force: true }).catch(() => {})));
+    throw err;
+  }
+}
+
 async function update() {
   const { url, via } = await resolveRuntimeUrl();
   const bytes = await get(url);
@@ -123,12 +154,21 @@ async function update() {
     ' * Regenerate with: npm run vendor:runtime -- --update\n */\n';
 
   const prev = existsSync(LOCK) ? JSON.parse(await readFile(LOCK, 'utf8')) : null;
-  await writeFile(path.join(VENDOR, 'storyComponents.js'), bytes);
-  await writeFile(path.join(VENDOR, 'site-chat.css'), header + subset + '\n', 'utf8');
+  const cssText = header + subset + '\n';
+  const cssSha = sha256(Buffer.from(cssText, 'utf8'));
 
-  await writeFile(
-    LOCK,
-    JSON.stringify(
+  // Stage every file, then rename into place. A plain writeFile can be
+  // interrupted mid-stream and leave a truncated vendor file behind; a rename
+  // within the same directory is atomic. The lockfile is renamed LAST, so an
+  // interruption can only ever leave the *old* lockfile pointing at new
+  // content — which `verify()` reports as a hash mismatch and tells you to
+  // re-run `--update`. That self-diagnosing mismatch is the recovery path.
+  await stage([
+    [path.join(VENDOR, 'storyComponents.js'), bytes],
+    [path.join(VENDOR, 'site-chat.css'), cssText],
+    [
+      LOCK,
+      JSON.stringify(
       {
         _comment:
           'Provenance for vendor/. Third-party, not covered by this repo LICENSE. See vendor/README.md.',
@@ -143,14 +183,17 @@ async function update() {
           sha256: sha256(cssBytes),
           sourceBytes: cssBytes.length,
           extractedBytes: subset.length,
+          // Hash of the file we actually emit, not of the remote source. The
+          // preview serves this file directly, so verify() has to check it.
+          extractedSha256: cssSha,
         },
         fetchedAt: new Date().toISOString().slice(0, 10),
       },
-      null,
-      2,
-    ) + '\n',
-    'utf8',
-  );
+        null,
+        2,
+      ) + '\n',
+    ],
+  ]);
 
   console.log(`✓ vendored ${url}`);
   console.log(`  sha256 ${hash}  (${bytes.length} bytes)`);
@@ -181,11 +224,29 @@ async function verify() {
     console.error(`   actual   ${hash}`);
     process.exit(1);
   }
-  if (!existsSync(path.join(VENDOR, 'site-chat.css'))) {
+  const cssFile = path.join(VENDOR, 'site-chat.css');
+  if (!existsSync(cssFile)) {
     console.error('✗ vendor/site-chat.css is missing — run with --update');
     process.exit(1);
   }
+
+  // lock.css.sha256 is the *remote* stylesheet; extractedSha256 covers the file
+  // the preview actually serves, so truncation or hand-editing is caught here.
+  const cssExpected = lock.css?.extractedSha256;
+  if (cssExpected) {
+    const cssHash = sha256(await readFile(cssFile));
+    if (cssHash !== cssExpected) {
+      console.error('✗ vendor/site-chat.css does not match the lockfile');
+      console.error(`   expected ${cssExpected}`);
+      console.error(`   actual   ${cssHash}`);
+      process.exit(1);
+    }
+  } else {
+    console.warn('!  lockfile predates extracted-CSS hashing — re-run with --update to pin it');
+  }
+
   console.log(`✓ runtime matches lockfile (${expected.slice(0, 16)}…, fetched ${lock.fetchedAt})`);
+  if (cssExpected) console.log(`✓ site-chat.css matches lockfile (${cssExpected.slice(0, 16)}…)`);
 }
 
 const args = process.argv.slice(2);

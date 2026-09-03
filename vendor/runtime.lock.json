@@ -10,7 +10,8 @@
     "url": "https://chat.fuderation.com/assets/main-CXuixjDb.css",
     "sha256": "6936dbccc6772d79091eb0eb40dc971bd703d302fc590861062cd092b3dd3dee",
     "sourceBytes": 495992,
-    "extractedBytes": 15716
+    "extractedBytes": 15716,
+    "extractedSha256": "ff50ae40fc47ceb498ae188141c294f109f5bd7280b3cb6a64529287dd5740bb"
   },
   "fetchedAt": "2026-09-03"
 }

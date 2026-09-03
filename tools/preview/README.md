@@ -22,7 +22,7 @@ Workshop 自带的预览把所有组件都塞进 iframe、不替换 `$参数$`�
 | iframe 文档、CSP、高度回报协议 | **官方运行时** |
 | 注入的 `[组件使用说明]` 系统提示词 | **官方运行时** |
 | 气泡与 Markdown 样式 | **官方样式表**，见 `vendor/site-chat.css` |
-| Markdown 渲染 | markdown-it，配置与站点一致：`{html:true, linkify:true, breaks:true}` |
+| Markdown 渲染 | markdown-it，配置与站点一致：`{html:true, linkify:true, breaks:true}`，输出再过一遍 DOMPurify（`html:true` 会原样放行 HTML，而组件可以通过 `appendMsg`/`changeMsg` 把任意标记写进消息里）|
 | 挂载 iframe、响应高度回报 | 我们写的 —— 站点的挂载代码不在任何可达 chunk 里 |
 | DSL 解释器与点击绑定 | 我们写的，同上（[`dsl.js`](dsl.js)） |
 | 宿主：toast、fillInput、changeMsg、存储、世界书 | 我们写的模拟（[`host.js`](host.js)） |

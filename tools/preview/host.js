@@ -61,16 +61,31 @@ export function createHost({ onMessageChange, onLog, getState }) {
 
     // The real host uses IndexedDB scoped to device+browser. localStorage is the
     // same scope for preview purposes, and lets you inspect it in devtools.
+    // Both swallow storage failures (private mode, quota, blocked site data) and
+    // still return a value: an iframe's saveToLocal/readFromLocal is a pending
+    // postMessage round-trip, and a throw here would never send the reply.
     saveToLocal(key, value) {
       const k = String(key ?? '').slice(0, 128);
       if (!k) return '';
-      localStorage.setItem(STORE_PREFIX + k, String(value ?? ''));
-      onLog({ kind: 'saveToLocal', text: `${k} = ${String(value ?? '')}` });
-      return String(value ?? '');
+      const v = String(value ?? '');
+      try {
+        localStorage.setItem(STORE_PREFIX + k, v);
+      } catch (err) {
+        onLog({ kind: 'saveToLocal', text: k, note: `storage unavailable — ${err?.name || 'error'}` });
+        return '';
+      }
+      onLog({ kind: 'saveToLocal', text: `${k} = ${v}` });
+      return v;
     },
     readFromLocal(key) {
       const k = String(key ?? '').slice(0, 128);
-      const v = k ? localStorage.getItem(STORE_PREFIX + k) || '' : '';
+      let v = '';
+      try {
+        v = k ? localStorage.getItem(STORE_PREFIX + k) || '' : '';
+      } catch (err) {
+        onLog({ kind: 'readFromLocal', text: k, note: `storage unavailable — ${err?.name || 'error'}` });
+        return '';
+      }
       onLog({ kind: 'readFromLocal', text: `${k} -> ${v || '(empty)'}` });
       return v;
     },

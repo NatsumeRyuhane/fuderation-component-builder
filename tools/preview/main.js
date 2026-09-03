@@ -97,18 +97,30 @@ function renderParamEditor() {
     el.params.innerHTML = '<p class="empty">该组件没有 <code>$参数$</code> 占位符。</p>';
     return;
   }
-  el.params.innerHTML = names
-    .map((p, i) => {
+  // Built with DOM APIs throughout: a parameter *name* comes from the component
+  // under test and can contain quotes or angle brackets, which would break out
+  // of both the label text and the data-param attribute if interpolated.
+  el.params.replaceChildren(
+    ...names.map((p, i) => {
+      const row = document.createElement('div');
+      row.className = 'param';
+
+      const label = document.createElement('label');
+      label.htmlFor = `p${i}`;
+      label.textContent = p;
+
       const long = (state.params[p] ?? '').length > 40;
-      return `<div class="param">
-        <label for="p${i}">${p}</label>
-        ${long
-          ? `<textarea id="p${i}" data-param="${p}" rows="2"></textarea>`
-          : `<input id="p${i}" data-param="${p}" type="text">`}
-      </div>`;
-    })
-    .join('');
-  // Assign values as properties so nothing in a param value can inject markup.
+      const field = document.createElement(long ? 'textarea' : 'input');
+      field.id = `p${i}`;
+      field.dataset.param = p;
+      if (long) field.rows = 2;
+      else field.type = 'text';
+
+      row.append(label, field);
+      return row;
+    }),
+  );
+  // Values are assigned as properties, so nothing in a value can inject markup.
   for (const node of el.params.querySelectorAll('[data-param]')) {
     node.value = state.params[node.dataset.param] ?? '';
     node.addEventListener('input', () => {
@@ -175,6 +187,13 @@ function analyse(component) {
   const nativeJs = /(?:^|[\s;(])(const|let|var|function|if|for|while|return)\b|=>|document\.|window\.|setInterval\s*\(|setTimeout\s*\(|requestAnimationFrame\s*\(|new\s+Date\s*\(/i;
   const atRule = /@(?:media|supports|keyframes|font-face|layer|container|property)\b/i;
   const globalSel = /(^|[\s,{>+~])(?:html|body|:root)(?=[\s.#:[>+~,{]|$)/i;
+  // querySelectorAll runs against a detached <template>, so nothing stateful can
+  // match, and pseudo-elements are not selectable at all (that rule is skipped).
+  const deadPseudo = /::|:(?:hover|focus(?:-within|-visible)?|active|visited|target|before|after|first-line|first-letter)\b/i;
+  // These *do* match — once, against the markup as it was at flatten time.
+  const statePseudoStructural = /:(?:nth-child|nth-of-type|nth-last-child|nth-last-of-type|first-child|last-child|only-child|first-of-type|last-of-type|only-of-type|not|is|where|has)\b/i;
+  const allStatements = (t) =>
+    String(t || '').split(/[\r\n;]+/).map((x) => x.trim()).filter((x) => x && !x.startsWith('//'));
 
   const warnings = [];
   let mode, reason;
@@ -186,9 +205,10 @@ function analyse(component) {
       return !m || !BRIDGE_FNS.has(m[1]);
     });
     const all = String(script).split(/[\r\n;]+/).map((s) => s.trim()).filter((s) => s && !s.startsWith('//'));
+    // Se() slices to the first 32 statements *before* validating, so a long
+    // all-whitelisted script still validates and stays in DSL mode.
     if (nativeJs.test(script)) [mode, reason] = ['iframe', '脚本包含原生 JS'];
     else if (bad) [mode, reason] = ['iframe', `存在非 DSL 语句：${bad.slice(0, 36)}`];
-    else if (all.length > 32) [mode, reason] = ['iframe', `共 ${all.length} 条调用（DSL 只解析 32 条）`];
     else [mode, reason] = ['dsl', `${all.length} 条白名单桥接调用`];
   } else if (/<\s*(html|head|body)\b/i.test(html)) [mode, reason] = ['iframe', 'HTML 含完整文档标签'];
   else if (css.length > 1000) [mode, reason] = ['iframe', `CSS 共 ${css.length} 字符（> 1000）`];
@@ -199,8 +219,19 @@ function analyse(component) {
   if (mode === 'dsl') {
     if (css.length > 1000) warnings.push(`CSS 被截断：超出 1000 字符上限的 ${css.length - 1000} 个字符会被静默丢弃。`);
     if (atRule.test(css)) warnings.push('DSL 模式会跳过 @media / @keyframes 等 at-rule。');
-    if (/:(?:hover|focus|active|nth-|before|after)|::/.test(css)) warnings.push('DSL 模式把 CSS 摊平成内联样式，伪类 / 伪元素不会生效。');
+    if (deadPseudo.test(css)) {
+      warnings.push('DSL 模式把 CSS 摊平成内联样式：状态伪类（:hover/:focus/:active）与伪元素（::before 等）永远不会生效。');
+    }
+    if (statePseudoStructural.test(css)) {
+      warnings.push('结构性伪类（:nth-child 等）只在摊平的那一刻按初始 DOM 匹配一次，之后 DOM 变化不会重新套用。');
+    }
     if (script) warnings.push('DSL 脚本在「点击组件」时才执行，不是挂载时。');
+    if (statements(script).length < allStatements(script).length) {
+      warnings.push(
+        `脚本共 ${allStatements(script).length} 条语句，DSL 校验只看前 32 条 —— ` +
+          '超出部分是否执行无法从可达代码确认，请勿依赖。',
+      );
+    }
   }
   if (mode === 'iframe' && /\bopenUrl\s*\(/.test(script)) {
     warnings.push('iframe 模式下 openUrl() 未定义，调用会抛 ReferenceError。');
@@ -357,9 +388,14 @@ async function loadFile(file) {
 
 function applyRawModeUi() {
   el.composed.hidden = state.rawMode;
+  // The raw box is a permanent read-out of the message the runtime actually
+  // parses, so it stays visible in both modes — the toggle only decides whether
+  // it is editable. It ships `hidden` in the markup purely to avoid a flash of
+  // unstyled content before this runs.
   el.rawField.hidden = false;
   el.message.readOnly = !state.rawMode;
   el.message.style.opacity = state.rawMode ? '1' : '.65';
+  el.message.title = state.rawMode ? '' : '勾选「直接编辑原文」后可编辑';
 }
 
 el.rawToggle.addEventListener('change', () => {
@@ -389,7 +425,7 @@ for (const btn of document.querySelectorAll('[data-width]')) {
     state.width = Number(btn.dataset.width);
     for (const b of document.querySelectorAll('[data-width]')) b.classList.toggle('active', b === btn);
     el.bubble.style.width = `${state.width}px`;
-    for (const f of document.querySelectorAll('iframe.preview-component-frame')) requestResize(f, '');
+    for (const f of document.querySelectorAll('iframe.preview-component-frame')) requestResize(f);
   });
 }
 
@@ -421,10 +457,14 @@ window.addEventListener('drop', (e) => {
 });
 
 $('[data-reset-storage]').addEventListener('click', () => {
-  for (const k of Object.keys(localStorage)) {
-    if (k.startsWith('fcb-preview:local:')) localStorage.removeItem(k);
+  try {
+    for (const k of Object.keys(localStorage)) {
+      if (k.startsWith('fcb-preview:local:')) localStorage.removeItem(k);
+    }
+    log({ kind: 'storage', text: '已清除预览的本地存储' });
+  } catch (err) {
+    log({ kind: 'storage', text: `无法访问本地存储：${err?.name || 'error'}` });
   }
-  log({ kind: 'storage', text: '已清除预览的本地存储' });
 });
 $('[data-clear-log]').addEventListener('click', () => { state.logs = []; renderLog(); });
 
@@ -449,6 +489,7 @@ window.__preview = {
     }
   },
   reload: loadFromSrc,
+  host,
 };
 
 renderLog();

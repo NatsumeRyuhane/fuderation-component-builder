@@ -36,6 +36,10 @@ export function mountFrames(container, getFrameDoc, { onMount } = {}) {
     iframe.setAttribute('referrerpolicy', 'no-referrer');
     iframe.setAttribute('loading', 'lazy');
     iframe.className = 'preview-component-frame';
+    // The document's resize listener drops any request whose id !== its own
+    // frameId, so requestResize() needs this back. The placeholder carrying it
+    // is replaced below, so stash it on the iframe.
+    iframe.dataset.storyFrameId = id;
     iframe.style.width = '100%';
     iframe.style.border = '0';
     iframe.style.display = 'block';
@@ -72,7 +76,11 @@ export function listenForFrameResize({ onResize } = {}) {
   return () => window.removeEventListener('message', onMessage);
 }
 
-/** Ask a mounted frame to re-measure (used after the bubble width changes). */
-export function requestResize(iframe, id) {
+/**
+ * Ask a mounted frame to re-measure (used after the bubble width changes).
+ * `id` defaults to the id stashed at mount; an id the frame does not recognise
+ * is silently ignored by its listener.
+ */
+export function requestResize(iframe, id = iframe?.dataset?.storyFrameId || '') {
   iframe.contentWindow?.postMessage({ type: RESIZE_REQUEST, id }, '*');
 }

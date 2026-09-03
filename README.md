@@ -39,8 +39,8 @@ npm run preview    # 本地预览：http://localhost:5173
 ├── src/                 # 你编写的源码
 │   ├── markup.html      # 仅 HTML            -> component.html
 │   ├── styles.css       # 样式               -> component.css
-│   ├── script.ts        # 经 esbuild 编译     -> component.script   (iframe 模式)
-│   ├── script.js        # 或原样透传          -> component.script   (DSL 模式)
+│   ├── script.ts        # 经 esbuild 编译     -> component.script   (必定 iframe 模式)
+│   ├── script.js        # 或原样透传          -> component.script   (模式由内容决定)
 │   ├── ai_prompt.md     # AI 附加提示词        -> component.ai_prompt
 │   └── meta.json        # { "name", "description" }
 ├── component.json       # 构建产物（生成、被忽略）—— 导入此文件到 Workshop
@@ -88,7 +88,9 @@ npm run preview -- --open --port 5199
 `src/script.js` 与 `src/script.ts` **二选一**，不要同时存在。
 
 - **`script.js`（原样透传，推荐用于简单组件）** —— 一行写一个桥接函数调用，例如
-  `setText('[data-out]', '$Text$')`。它会被原样透传，因此运行在轻量的 **DSL 模式**。
+  `setText('[data-out]', '$Text$')`。它会被原样透传，**但透传不等于 DSL 模式**：只有当
+  每条语句都是白名单桥接调用、且不含原生 JS 时，才会落在轻量的 **DSL 模式**；否则照样
+  进 iframe。以 `npm run build` 打印的模式为准。
 - **`script.ts`（编译）** —— 由 esbuild 打包并压缩为内联 IIFE。任何编译产物都会运行在沙箱
   **iframe 模式**。正常编写 TypeScript 即可，但**不要 `import` 桥接函数** —— 它们由运行时
   注入为全局函数，并在 `types/bridge.d.ts` 中做了环境声明。iframe 内禁止外部/CDN 脚本，
@@ -144,7 +146,8 @@ npm run preview -- --open --port 5199
 - `description` ≤ 120 字符；`ai_prompt` ≤ 1000 字符。
   `ai_prompt` 为空时，AI 根本不会被告知该组件的存在。
 - `html` + `css` + `script` 合计 ≤ 20000 字符。
-- DSL 模式额外限制：最多 32 条桥接调用、最多 1000 字符 CSS。
+- DSL 模式额外限制：最多 1000 字符 CSS。桥接调用的 32 条是**校验窗口**而非上限——
+  运行时只校验前 32 条语句，多出来的不校验也不保证执行，别依赖。
 - 禁止真实联网、真实登录、真实支付。**也不能加载外部字体**
   （iframe CSP 的 `font-src` 只允许 `data:`，Google Fonts 会静默失败）。
 - 组件在 VN 模式下不生效。

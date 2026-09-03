@@ -104,7 +104,7 @@ widths before handing it over. Then suggest the user import `component.json` int
 
 Only after the static version renders correctly in playtest, add a script using bridge functions:
 
-- **`src/script.js`** — passed through verbatim. Write one bridge call per line, at most 32 calls, using only whitelisted names, to keep lightweight **DSL mode**. Prefer this for simple components, using the [safe default set](#safe-defaults). Remember a DSL script is a **click handler** — it runs when the user clicks the component, not on render.
+- **`src/script.js`** — passed through verbatim. Write one bridge call per line, using only whitelisted names, to keep lightweight **DSL mode**. (Only the first 32 statements are validated; statements past that are neither checked nor guaranteed to run, so keep scripts under 32 calls.) Prefer this for simple components, using the [safe default set](#safe-defaults). Remember a DSL script is a **click handler** — it runs when the user clicks the component, not on render.
 - **`src/script.ts`** — compiled by esbuild to an inline IIFE (always **iframe mode**). Use for complex logic, event listeners, or anything that must run on mount. Treat bridge functions as ambient globals (declared in `types/bridge.d.ts`); never `import` them, and do not use `fetch`/networking.
 
 If the component has an input field, give the trigger button `data-component-trigger="1"` — it stops Enter inside the input from firing the global chat send.
@@ -185,7 +185,7 @@ The runtime picks one of two modes per render. **This is not purely script-drive
 **You get iframe mode when any of these is true:**
 
 1. The script matches the advanced-JS detector — `const let var function if for while return`, `=>`, `document.`, `window.`, `setInterval(`, `setTimeout(`, `requestAnimationFrame(`, `new Date(`.
-2. The script is not pure DSL: more than 32 calls, or any line that isn't `whitelistedName(args)`.
+2. The script is not pure DSL: any line among the first 32 that isn't `whitelistedName(args)`. (Length alone does not trigger this — validation slices to 32 statements first, so a longer all-whitelisted script still lands in DSL mode with its tail unvalidated.)
 3. *(no script)* The HTML contains `<html`, `<head` or `<body`.
 4. *(no script)* **The CSS exceeds 1000 characters.**
 5. *(no script)* The CSS contains `@media`, `@supports`, `@keyframes`, `@font-face`, `@layer`, `@container` or `@property`.
@@ -326,8 +326,8 @@ getCharAvatar()                — current storyline character avatar URL (use a
 getUserAvatar()                — current logged-in user avatar URL (use as arg)
 getWorldInfo(trigger)          — enabled world-book entries matching trigger; array (async in iframe mode)
 openUrl(url)                   — http/https only — DSL MODE ONLY, undefined in iframe mode
-saveToLocal(key, value)        — IndexedDB; key max 128 chars (async in iframe mode)
-readFromLocal(key)             — returns stored value (async in iframe mode)
+saveToLocal(key, value)        — IndexedDB, THIS device+browser only; key max 128 chars (async in iframe mode)
+readFromLocal(key)             — returns stored value, same device-local scope (async in iframe mode)
 ```
 
 Getter functions (`getMsgContent`, `getCharAvatar`, `getUserAvatar`,
@@ -366,7 +366,7 @@ Two options, and they are not equivalent:
 
 Two components can also hand off to each other by having each `changeMsg` a call
 to the other, carrying state in the parameter tags — see
-[EXAMPLES.md](EXAMPLES.md#4-two-component-state-machine-cyberpanelalphabeta).
+[EXAMPLES.md](EXAMPLES.md#4-two-component-state-machine-cyberpanelalpha--cyberpanelbeta).
 
 ### Component editor fields
 
@@ -386,7 +386,7 @@ to the other, carrying state in the parameter tags — see
 - Component name: 32 chars max
 - Description: 120 chars max
 - AI supplementary prompt: 1,000 chars max (counts toward storyline total)
-- DSL mode: 32 bridge calls max, 1,000 chars of CSS max
+- DSL mode: 1,000 chars of CSS max; only the first 32 bridge calls are validated (keep scripts under 32 — the rest is unspecified)
 - `openUrl`: `http`/`https` only, DSL mode only
 - No real networking, auth, payment, or backend operations
 - VN mode: components disabled

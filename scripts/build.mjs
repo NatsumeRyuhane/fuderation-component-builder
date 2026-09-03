@@ -55,6 +55,13 @@ const BRIDGE_FNS = new Set([
 ]);
 
 // CSS features that force iframe mode when the component has no script.
+// querySelectorAll runs against a detached <template> during flattening: nothing
+// stateful can match, and pseudo-elements are not selectable at all.
+const CSS_DEAD_PSEUDO_RE =
+  /::|:(?:hover|focus(?:-within|-visible)?|active|visited|target|before|after|first-line|first-letter)\b/i;
+// These DO match — once, against the markup as it stood at flatten time.
+const CSS_STRUCTURAL_PSEUDO_RE =
+  /:(?:nth-child|nth-of-type|nth-last-child|nth-last-of-type|first-child|last-child|only-child|first-of-type|last-of-type|only-of-type|not|is|where|has)\b/i;
 const CSS_AT_RULE_RE = /@(?:media|supports|keyframes|font-face|layer|container|property)\b/i;
 const CSS_GLOBAL_SEL_RE = /(^|[\s,{>+~])(?:html|body|:root)(?=[\s.#:[>+~,{]|$)/i;
 
@@ -133,11 +140,14 @@ function analyseMode(component) {
   let mode;
   let reason;
 
+  const statements = script
+    ? script
+        .split(/[\r\n;]+/)
+        .map((s) => s.trim())
+        .filter((s) => s && !s.startsWith('//'))
+    : [];
+
   if (script) {
-    const statements = script
-      .split(/[\r\n;]+/)
-      .map((s) => s.trim())
-      .filter((s) => s && !s.startsWith('//'));
     const considered = statements.slice(0, LIMITS.dslCalls);
     const badCall = considered.find((s) => {
       const m = s.match(DSL_CALL_RE);
@@ -150,10 +160,9 @@ function analyseMode(component) {
     } else if (badCall) {
       mode = 'iframe';
       reason = `script has a non-DSL statement (${badCall.slice(0, 40)}…)`;
-    } else if (statements.length > LIMITS.dslCalls) {
-      mode = 'iframe';
-      reason = `script has ${statements.length} calls (DSL parses only ${LIMITS.dslCalls})`;
     } else {
+      // Se() slices to the first `dslCalls` statements *before* validating, so a
+      // longer all-whitelisted script still validates and stays in DSL mode.
       mode = 'dsl';
       reason = `${statements.length} whitelisted bridge call(s)`;
     }
@@ -184,11 +193,27 @@ function analyseMode(component) {
     if (CSS_AT_RULE_RE.test(css)) {
       warnings.push('DSL mode skips @-rules — @media/@keyframes/@font-face will not apply.');
     }
-    if (/:(?:hover|focus|active|nth-|before|after)|::/.test(css)) {
-      warnings.push('DSL mode flattens css to inline styles — pseudo-classes/elements never apply.');
+    if (CSS_DEAD_PSEUDO_RE.test(css)) {
+      warnings.push(
+        'DSL mode flattens css to inline styles — state pseudo-classes (:hover/:focus/:active) ' +
+          'and pseudo-elements (::before …) never apply.',
+      );
+    }
+    if (CSS_STRUCTURAL_PSEUDO_RE.test(css)) {
+      warnings.push(
+        'Structural selectors (:nth-child …) are matched ONCE against the initial markup when ' +
+          'the css is flattened; later DOM changes will not re-apply them.',
+      );
     }
     if (script) {
       warnings.push('DSL scripts run on CLICK, not on mount. Use src/script.ts to run on render.');
+    }
+    if (statements.length > LIMITS.dslCalls) {
+      warnings.push(
+        `script has ${statements.length} statements but DSL validation inspects only the first ` +
+          `${LIMITS.dslCalls}. Whether the rest execute cannot be confirmed from the reachable ` +
+          'runtime code — do not rely on it.',
+      );
     }
   }
 

@@ -17,7 +17,7 @@ mechanics behind each note are in [RUNTIME_INTERNALS.md](RUNTIME_INTERNALS.md).
 | [Media card](#1-media-card-videocom) | `$param$` into `src`, optional params, click handlers | iframe |
 | [Randomiser](#2-randomiser-dice) | `fillInput` to drive the story, `$id$` scoping, range tables | iframe |
 | [Self-switching message](#3-self-switching-message-openning) | A component that rewrites its own message to change state | iframe |
-| [Two-component state machine](#4-two-component-state-machine-cyberpanelalphabeta) | State carried in the message text, no `$param$` at all | iframe |
+| [Two-component state machine](#4-two-component-state-machine-cyberpanelalpha--cyberpanelbeta) | State carried in the message text, no `$param$` at all | iframe |
 | [Full-document paste](#5-full-document-paste-word) | What the single-field editor does with a whole HTML file — and what the CSP eats | iframe |
 
 > Every one of these is **iframe mode** — each has a real-JS script. Nothing
@@ -86,6 +86,25 @@ btn?.addEventListener('click', () => {
 
 ### What to fix if you adapt it
 
+- **`'$说明文字$'` and `'$视频地址$'` sit inside JavaScript string literals.**
+  Parameters are inserted into `script` *raw* (only `html` is escaped), so an
+  apostrophe, backslash or newline in either value breaks the literal — and a
+  crafted value can append statements that run with the component's full bridge
+  access. This is the shipped code, reproduced faithfully; do not copy it. Park
+  the values in hidden markup and read them back:
+
+  ```html
+  <span data-desc-src hidden>$说明文字$</span>
+  <span data-video-src hidden>$视频地址$</span>
+  ```
+
+  ```ts
+  const desc = document.querySelector('[data-desc-src]')?.textContent ?? ''
+  const src  = document.querySelector('[data-video-src]')?.textContent ?? ''
+  ```
+
+  `Dice` (`$id$`, `$sides$`), `openning` (`$selection$`) and `word`
+  (`$finalChar$`) all have the same shape. See cross-cutting rule 4.
 - The `<video>` carries an inline `style` attribute. That survives the DSL-path
   sanitizer, but put it in `styles.css` anyway — inline styles are the one thing
   the CSS-flattening path *also* writes to, so they can be silently merged over.
@@ -342,9 +361,13 @@ The editor accepted it and split it automatically:
 
 1. **Anything with a click handler is an iframe component.** Accept it and use
    real CSS; do not contort the script back into DSL form.
-2. **`changeMsg` + re-emitting your own tag is the only durable state store**
-   for a component that must survive a reload. `saveToLocal` is device-local and
-   async; message text is the storyline's real memory.
+2. **Pick the store by what the state is for.** `saveToLocal`/`readFromLocal`
+   persist across reloads too, but only on *this device and browser*, and the
+   model never sees them — right for per-player preferences, wrong for story
+   state. `changeMsg` + re-emitting your own tag puts the state in the message
+   text, so it follows the conversation across devices and is visible to the AI;
+   that is the storyline's real memory, and the only option for anything the
+   model must be able to read back.
 3. **Escape `$` when writing component tags from a script** — `\$Name\$`, or
    `String.fromCharCode(36)`.
 4. **Params go into HTML escaped, into script raw.** Park untrusted or

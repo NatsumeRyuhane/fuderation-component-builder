@@ -139,8 +139,12 @@ const server = createServer(async (req, res) => {
     }
 
     const file = url.pathname === '/' ? 'index.html' : url.pathname.replace(/^\/+/, '');
-    const target = path.join(PREVIEW, file);
-    if (!target.startsWith(PREVIEW) || !existsSync(target)) return send(404, 'text/plain', 'not found');
+    // path.join() normalises `..` away, so a prefix test would also accept a
+    // sibling directory whose name merely starts with "preview". Compare against
+    // the directory boundary instead.
+    const target = path.resolve(PREVIEW, file);
+    const inside = target === PREVIEW || target.startsWith(PREVIEW + path.sep);
+    if (!inside || !existsSync(target)) return send(404, 'text/plain', 'not found');
 
     return send(200, TYPES[path.extname(target)] || 'application/octet-stream', await readFile(target));
   } catch (err) {

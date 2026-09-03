@@ -108,8 +108,15 @@ else
 2. the script is not "pure DSL" — `Se()` splits on `[\r\n;]+`, drops blanks and
    `//` lines, **takes only the first 32 statements**, and requires *every* one
    to match `^name(...)$` with `name` in the bridge whitelist (or registered on
-   `window.storyComponentFns`). More than 32 calls, or one unknown/mis-shaped
-   call, and the whole thing goes to an iframe.
+   `window.storyComponentFns`). One unknown or mis-shaped call among those 32
+   and the whole thing goes to an iframe.
+
+   > **The 32 is a validation window, not a cap.** `.slice(0, 32)` happens
+   > *before* `.every(...)`, so a 40-call all-whitelisted script validates on its
+   > first 32 statements and **stays in DSL mode**. Statements 33+ are never
+   > checked. Whether they are also *executed* cannot be answered from the
+   > reachable code (§3) — the executor is not in any manifest-reachable chunk.
+   > Treat anything past the 32nd statement as unspecified and do not rely on it.
 
 **With no script at all**, iframe mode when (`_e`):
 
@@ -125,7 +132,7 @@ Any compiled `script.ts` output matches trigger 1 → **always iframe mode**.
 
 DSL mode has **no stylesheet**. See §2. Iframe mode is the only mode where your
 CSS is a real stylesheet, so triggers 4–6 are the levers for a *static* component
-that needs real CSS — a `@media` block or 1 KB of CSS is enough.
+that needs real CSS — a `@media` block or more than 1000 CSS characters is enough.
 
 ## 2. DSL mode flattens CSS into inline `style` attributes
 
@@ -150,9 +157,18 @@ Consequences for a DSL-mode component:
   you get an iframe instead — but a component **with** a pure-DSL script and
   >1 KB of CSS stays in DSL mode and loses the tail.)
 - `@media`, `@keyframes`, `@font-face` … are skipped.
-- **Pseudo-classes and pseudo-elements never apply** — `:hover`, `::before`,
-  `:nth-child` are matched with `querySelectorAll` against a static template, so
-  `:hover` matches nothing and `::before` throws (that selector is skipped).
+- **Stateful pseudo-classes and pseudo-elements never apply, structural ones do
+  — once.** Each selector is run through `querySelectorAll` against a *detached
+  `<template>`* holding the initial markup:
+  - `:hover`, `:focus`, `:active`, `:visited`, `:target` match nothing — the
+    template is never rendered, so no element is ever in those states.
+  - `::before` / `::after` (and the legacy one-colon spellings) throw
+    `SyntaxError`; the `try/catch` skips that selector entirely. Pseudo-elements
+    are not selectable by the Selectors API at all.
+  - `:nth-child()`, `:first-child`, `:not()`, `:is()` … **do match**, because
+    they are structural. But they resolve *at flatten time only*: the matched
+    declarations are baked into `style` attributes, so any later DOM change
+    (including one your DSL script makes on click) will not re-apply them.
 - Each declaration is filtered: the property must match `^--[A-Za-z0-9_-]{1,64}$`
   or `^[A-Za-z][A-Za-z-]{0,63}$`, the value must be ≤256 chars and must not
   contain `javascript:`, `expression(`, `@import` or `url(javascript:)`.
@@ -252,19 +268,31 @@ not just the first. Confirmed by running the shipped runtime under
 `npm run preview`.
 
 This silently breaks the common "read my own invocation back out of the message"
-pattern (see [EXAMPLES.md](EXAMPLES.md#4-two-component-state-machine-cyberpanelalphabeta),
-where it makes a shipped component pair drop its state entirely). Either defer
-the read:
+pattern (see [EXAMPLES.md](EXAMPLES.md#4-two-component-state-machine-cyberpanelalpha--cyberpanelbeta),
+where it makes a shipped component pair drop its state entirely).
+
+**The fix is `$param$`, not a timer.** Parameters are substituted into the
+document *before* it is built, so they are present at the first line of your
+script with no round-trip at all:
+
+```ts
+const state = '$State$'          // already there, always
+```
+
+There is no supported way to await the host's reply. `getMsgContent()` posts a
+request and returns the cached value *synchronously* — the cache is only filled
+when the reply arrives later, so a deferred read is a race, not a fix:
 
 ```js
 getMsgContent();                          // fire the request
 setTimeout(() => {
-  const raw = getMsgContent() || '';      // now populated
+  const raw = getMsgContent() || '';      // USUALLY populated — not guaranteed
 }, 60);
 ```
 
-…or avoid the round-trip altogether by taking state from `$param$` placeholders,
-which are substituted before the document is built.
+Use that only as a diagnostic. If the reply takes longer than the delay, `raw`
+is `''` again and the component silently loses its state — exactly the bug this
+section documents. Anything that must be correct belongs in a `$param$`.
 
 ### Selector and value rules (both modes)
 

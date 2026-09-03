@@ -44,8 +44,23 @@ build` assembles them into `component.json`.
   </div>
   <div class="door-pct" data-progress-text>0%</div>
   <div class="door-result" data-result style="display:none;"></div>
+  <!-- Parameter carriers. Substitution HTML-escapes into `html` but inserts
+       RAW into `script`, so an apostrophe or newline in a value would break a
+       JS string literal. Reading them back out of the DOM sidesteps that. -->
+  <span data-pass-expected hidden>$Password$</span>
+  <span data-success-text hidden>$SuccessText$</span>
 </div>
 ```
+
+> **Why the two hidden spans.** `$Password$` and `$SuccessText$` are free text
+> the AI writes. Dropped straight into a JS string literal they are an injection
+> hole; parked in markup they are escaped by the runtime, and `.textContent`
+> gives them back verbatim. The DSL script below still passes `'$Password$'`
+> inline — DSL statements are matched with `^name(...)$`, so a value containing
+> a quote or a newline breaks the statement and silently drops the component
+> into iframe mode. **If you keep the DSL version, constrain the parameter**
+> (document it as digits/letters only, as the table above does). The iframe
+> version has no such restriction because it reads from the DOM.
 
 ## `src/styles.css`
 
@@ -163,11 +178,19 @@ stylesheet, and `requireInputEquals` stops halting — so branch on its return
 value:
 
 ```ts
+const text = (sel: string) =>
+  document.querySelector(sel)?.textContent ?? ''
+
+// Read the parameters out of the escaped markup — never interpolate them into
+// the script source, where a quote or newline would break the literal.
+const expected = text('[data-pass-expected]')
+const success = text('[data-success-text]')
+
 const btn = document.querySelector('[data-component-trigger]')!
 btn.addEventListener('click', async () => {
-  if (!requireInputEquals('[data-pass-field]', '$Password$', 'Wrong password')) return
+  if (!requireInputEquals('[data-pass-field]', expected, 'Wrong password')) return
   await progress('[data-progress-bar]', '[data-progress-text]', 1500)
-  setText('[data-result]', '$SuccessText$')
+  setText('[data-result]', success)
   show('[data-result]')
 })
 ```
