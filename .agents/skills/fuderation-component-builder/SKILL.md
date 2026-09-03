@@ -125,7 +125,7 @@ When a component fails, check these in order:
 1. Is the component saved in the current storyline?
 2. Does the component name match? (Matching is case-insensitive, but stick to exact.)
 3. Are outer `<$...$>` tags closed?
-4. Is the invocation inside a markdown code block? Tags inside `` ` `` or ``` ``` ``` are never rendered.
+4. Is the invocation inside a markdown code block? Inline `` ` `` code and most fences suppress rendering — but a bare fence preceded by a blank line does **not** (a runtime bug, see [RUNTIME_INTERNALS.md](RUNTIME_INTERNALS.md#-inside-code-blocks--mostly-not-rendered-with-a-real-bug)). Add a language tag to fences you want treated as code.
 5. Do all `$Param$` placeholders in source match `<Param>` tags in AI output?
 6. Is VN mode off?
 7. Does the AI supplementary prompt exist and include a minimal invocation example? An empty `ai_prompt` means the AI is never told the component exists.

@@ -338,12 +338,46 @@ const script = C(component.script, args, false)
 So a param value containing `"` or `'` will break an inline script string
 literal. Park such values in a hidden element and read them back from the DOM.
 
-### `<$…$>` inside code blocks is not rendered
+### `<$…$>` inside code blocks — mostly not rendered, with a real bug
 
 The parser computes fenced (```` ``` ````/`~~~`) and inline-backtick spans and
-skips any component tag inside one. Separately, `He()` auto-escapes `<$…$>` to
-`<\$…\$>` outside code spans — this is the message-edit path, which is why
-hand-editing a message containing a component call can turn it into literal text.
+skips any component tag inside one. Inline code and correctly-detected fences
+protect their contents. **But fence detection has a bug**, verified by driving
+the shipped module directly:
+
+```text
+protects:  hi\n```\n<$X$>…\n```           (fence on the line right after text)
+protects:  hi\n\n```js\n<$X$>…\n```       (blank line, but a language tag)
+LEAKS:     hi\n\n```\n<$X$>…\n```         (blank line, no language tag)
+LEAKS:     hi\n\n~~~\n<$X$>…\n~~~         (same, tildes)
+LEAKS:     hi\n\n\n```\n<$X$>…\n```       (any amount of blank space)
+```
+
+The opener regex is `/^\s*(`{3,}|~{3,})/` applied to `o.slice(t)` at a position
+that already follows a newline. When a blank line precedes the fence, `\s*`
+consumes that second newline, so the subsequent `o.indexOf("\n", t)` finds *the
+same newline* and `m` lands just past it — meaning the fence's own opening line
+is then tested as, and accepted as, its closing line:
+
+```js
+const d = o.indexOf(`\n`, t), m = d < 0 ? o.length : d + 1;
+e.push([u, m, true]), t = m;      // fence opened … and immediately
+// next iteration: o.slice(t, u) === "```"  → matches the closer regex → closed
+```
+
+The fence is recorded as closed-and-empty, so everything "inside" it is ordinary
+text and the component **renders**. A language tag prevents this, because
+`"```js"` fails the closer regex.
+
+Practical consequence: a creator documenting a component *inside a chat message*
+with idiomatic markdown (blank line, bare fence) gets a live component instead of
+a code sample. Write ` ```text ` rather than ` ``` `.
+
+`He()` auto-escapes `<$…$>` to `<\$…\$>` outside code spans — the message-edit
+path, which is why hand-editing a message containing a component call can turn it
+into literal text. It shares `O()`, so it inherits the same bug from the other
+side: in the blank-line-plus-bare-fence case it **escapes** a tag that a reader
+intended as a code sample, mangling the block on edit.
 
 ## 8. Iframe sandbox and CSP
 
