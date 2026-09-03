@@ -10,9 +10,10 @@
 
 - **Node.js 18+**（基于 Node 22 开发）以及 npm。
 - 开发依赖，通过 `npm install` 安装：
-  - **esbuild** —— 将 `src/script.ts` 编译为压缩后的内联脚本。
+  - **esbuild** —— 将 `src/script.ts` 编译为压缩后的内联脚本；也用于打包预览工具。
   - **typescript** —— 依据 `types/bridge.d.ts` 中的桥接函数声明，对
     `src/script.ts` 做类型检查。
+  - **dompurify / markdown-it** —— 仅供本地预览使用，与站点自身依赖一致。
 
 没有任何运行时依赖 —— 组件以纯 HTML/CSS/JS 形式交付。
 
@@ -53,6 +54,9 @@ npm run preview    # 本地预览：http://localhost:5173
 └── .agents/skills/      # 创作技能（流程 + 设计 + 参考）
 ```
 
+`markup.html`/`styles.css`/`script.*` 中的 `$参数名$` 占位符，会在调用时由 AI 通过
+`<$name$><参数名>值</参数名></$name$>` 填入。
+
 ## 本地预览
 
 ```bash
@@ -61,7 +65,15 @@ npm run preview -- --open --port 5199
 ```
 
 用**真实的官方运行时**（冻结在 `vendor/`）把 `src/` 渲染到模拟聊天气泡里，
-修改 `src/` 会自动刷新。它会告诉你：
+配色、气泡与 Markdown 样式直接取自站点自己的样式表。修改 `src/` 会自动刷新。
+
+- **参数面板**：自动扫出所有 `$参数$` 占位符并生成输入框，改动即时重渲染。
+- **前后正文**：填写组件前后的 Markdown 正文，用站点同款 markdown-it 渲染。
+- **拖放载入**：把任意 `component.json` 拖进窗口即可预览（也支持单栏位 `source`）。
+- **宽度切换**：320 / 360 / 480 / 680，用来复现窄气泡下的自动缩放。
+- **宿主调用记录**：toast、fillInput、剪贴板、存储、世界书、消息改写全部可见。
+
+它会告诉你：
 
 - 当前落在哪种渲染模式、为什么；
 - CSS 是否被 1000 字符上限静默截断、`:hover`/`@keyframes` 是否根本没生效；
@@ -70,9 +82,6 @@ npm run preview -- --open --port 5199
 - `changeMsg` 的自我重调用是否真的能来回切换（Workshop 自带预览做不到这点）。
 
 详见 [`tools/preview/README.md`](tools/preview/README.md)。
-
-`markup.html`/`styles.css`/`script.*` 中的 `$参数名$` 占位符，会在调用时由 AI 通过
-`<$name$><参数名>值</参数名></$name$>` 填入。
 
 ## 编写脚本
 
@@ -161,7 +170,7 @@ npm run preview -- --open --port 5199
 本项目以 [MIT 许可证](LICENSE) 发布，允许在保留许可声明的前提下用于开源或私有产品。
 
 **例外：[`vendor/`](vendor/) 目录不适用 MIT 许可证。** 其中的
-`storyComponents.js` 是从 Fuderation 公开 Web 客户端原样取回的专有代码，版权归其所有者，
-仅为让本地预览与线上行为完全一致而收录。若你要 fork、再分发或公开发布本仓库，
+`storyComponents.js`（原样取回）与 `site-chat.css`（样式表子集）均来自 Fuderation 公开
+Web 客户端的专有代码，版权归其所有者，仅为让本地预览与线上行为、外观完全一致而收录。若你要 fork、再分发或公开发布本仓库，
 请先阅读 [`vendor/README.md`](vendor/README.md)；必要时删除该目录，改用
 `npm run vendor:runtime -- --update` 在本地按需拉取。

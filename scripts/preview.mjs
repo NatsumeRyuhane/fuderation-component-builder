@@ -67,18 +67,10 @@ async function bundle() {
   return bundleCache;
 }
 
-function sampleMessage(component) {
-  const params = [...new Set([...String(component.html).matchAll(/(?<!\\)\$([^$\n]{1,64})\$/g)].map((m) => m[1]))];
-  const body = params.length
-    ? params.map((p) => `  <${p}>sample ${p}</${p}>`).join('\n')
-    : '  <!-- this component takes no parameters -->';
-  return [
-    'Here is the component:',
-    '',
-    `<$${component.name}$>`,
-    body,
-    `</$${component.name}$>`,
-  ].join('\n');
+if (!existsSync(path.join(VENDOR, 'site-chat.css'))) {
+  console.error('✗ vendor/site-chat.css is missing.');
+  console.error('  Run: npm run vendor:runtime -- --update');
+  process.exit(1);
 }
 
 // ── live reload ──────────────────────────────────────────────────────────────
@@ -123,10 +115,7 @@ const server = createServer(async (req, res) => {
     if (url.pathname === '/api/component') {
       try {
         const component = await assembleComponent(ROOT);
-        return send(200, 'application/json', JSON.stringify({
-          component,
-          sampleMessage: sampleMessage(component),
-        }));
+        return send(200, 'application/json', JSON.stringify({ component }));
       } catch (err) {
         return send(200, 'application/json', JSON.stringify({ error: String(err.message || err) }));
       }
@@ -134,6 +123,11 @@ const server = createServer(async (req, res) => {
 
     if (url.pathname === '/main.js') {
       return send(200, 'text/javascript', await bundle());
+    }
+
+    // The site's own design tokens + chat/markdown rules, extracted at vendor time.
+    if (url.pathname === '/vendor-site-chat.css') {
+      return send(200, 'text/css', await readFile(path.join(VENDOR, 'site-chat.css')));
     }
 
     if (url.pathname === '/favicon.ico') {

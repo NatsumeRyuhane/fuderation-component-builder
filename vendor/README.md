@@ -2,10 +2,11 @@
 
 ## ⚠️ Licensing
 
-`storyComponents.js` is **proprietary code belonging to Fuderation**, retrieved
-verbatim from their public web client. It is **not** MIT-licensed and the MIT
-LICENSE at the repository root **does not apply to this directory**. All rights
-in it remain with its owner.
+`storyComponents.js` and `site-chat.css` are **derived from proprietary
+Fuderation code**, retrieved from their public web client — the first verbatim,
+the second as an extracted subset. Neither is MIT-licensed and the MIT LICENSE at
+the repository root **does not apply to this directory**. All rights in them
+remain with their owner.
 
 It is committed here so the local preview tool renders components exactly the way
 the live site does, rather than approximating it. If you fork, redistribute, or
@@ -16,10 +17,11 @@ it and use `npm run vendor:runtime -- --update` to fetch it locally instead.
 
 | File | Origin |
 |---|---|
-| `storyComponents.js` | `https://chat.fuderation.com/assets/storyComponents-DHDQXgJC.js`, unmodified |
-| `runtime.lock.json` | Resolved URL, SHA-256, byte count and fetch date |
+| `storyComponents.js` | `assets/storyComponents-*.js`, unmodified |
+| `site-chat.css` | A subset of `assets/main-*.css` — the design tokens plus the `.chat-msg-*`, `.chat-bubble-*` and `.markdown-body` rules (light theme only), so the preview's bubble and prose match the real client |
+| `runtime.lock.json` | Resolved URLs, SHA-256 of both files, byte counts and fetch date |
 
-The file is byte-identical to what the site serves — no patching, no
+`storyComponents.js` is byte-identical to what the site serves — no patching, no
 reformatting. The preview tool leaves it untouched and instead redirects its two
 imports at bundle time (see `tools/preview/`):
 

@@ -1,94 +1,109 @@
-# Local component preview
+# 本地组件预览
 
 ```bash
 npm run preview          # http://localhost:5173
 npm run preview -- --open --port 5199
 ```
 
-Renders `src/` inside a mock chat bubble using the **real Fuderation runtime**,
-frozen in [`vendor/`](../../vendor/). Edits to `src/` reload automatically.
+用**真实的 Fuderation 运行时**（冻结在 [`vendor/`](../../vendor/)）把 `src/` 渲染进模拟聊天气泡。
+界面语言为中文，配色与排版直接取自站点自己的样式表。修改 `src/` 会自动刷新。
 
-Workshop's own preview mounts everything in an iframe, does not substitute
-`$param$` placeholders, and cannot run the host bridge. This one does all three,
-so it shows what a playtest would — including the failure modes that are
-invisible until you playtest.
+Workshop 自带的预览把所有组件都塞进 iframe、不替换 `$参数$`、也跑不了宿主桥接。
+这个工具三件事都做，所以它能提前暴露那些「只有真机试玩才会发现」的问题。
 
-## What is real vs. simulated
+## 真实 vs. 模拟
 
-| | Source |
+| | 来源 |
 |---|---|
-| Message parsing, `$param$` substitution, escaping, code-fence handling | **Vendored runtime**, unmodified |
-| DSL-vs-iframe mode dispatch | **Vendored runtime** |
-| CSS flattening to inline styles (DSL mode) | **Vendored runtime** |
-| HTML sanitizing (DSL mode) | **Vendored runtime** + DOMPurify |
-| The iframe document, its CSP, the resize protocol | **Vendored runtime** |
-| Injected `[组件使用说明]` system prompt | **Vendored runtime** |
-| Mounting the iframe, sizing it | Ours — the site's mount code is not in any reachable chunk |
-| DSL interpreter and click binding | Ours — same reason ([`dsl.js`](dsl.js)) |
-| The host: toast, fillInput, changeMsg, storage, world book | Ours — a simulation ([`host.js`](host.js)) |
-| The bubble chrome | Ours, and deliberately not styled like the real app |
+| 消息解析、`$参数$` 替换、转义、代码块处理 | **官方运行时**，未改动 |
+| DSL / iframe 模式判定 | **官方运行时** |
+| DSL 模式下把 CSS 摊平成内联样式 | **官方运行时** |
+| HTML 消毒（DSL 模式） | **官方运行时** + DOMPurify |
+| iframe 文档、CSP、高度回报协议 | **官方运行时** |
+| 注入的 `[组件使用说明]` 系统提示词 | **官方运行时** |
+| 气泡与 Markdown 样式 | **官方样式表**，见 `vendor/site-chat.css` |
+| Markdown 渲染 | markdown-it，配置与站点一致：`{html:true, linkify:true, breaks:true}` |
+| 挂载 iframe、响应高度回报 | 我们写的 —— 站点的挂载代码不在任何可达 chunk 里 |
+| DSL 解释器与点击绑定 | 我们写的，同上（[`dsl.js`](dsl.js)） |
+| 宿主：toast、fillInput、changeMsg、存储、世界书 | 我们写的模拟（[`host.js`](host.js)） |
 
-Anything marked *ours* is reconstructed from the observed contract and recorded
-in [`RUNTIME_INTERNALS.md`](../../.agents/skills/fuderation-component-builder/RUNTIME_INTERNALS.md).
-Treat those details as best-effort; everything else behaves exactly as it will
-in a real chat.
+标注为「我们写的」的部分是根据观测到的契约重建的，细节记录在
+[`RUNTIME_INTERNALS.md`](../../.agents/skills/fuderation-component-builder/RUNTIME_INTERNALS.md)；
+其余部分的行为与真实聊天完全一致。
 
-## What it catches that a playtest makes you hunt for
+## 面板说明
 
-- **Which mode you are in**, and why — shown in the Render mode panel.
-- **CSS silently truncated** at the 1000-char DSL cap, or `:hover`/`@keyframes`
-  quietly doing nothing because you are in DSL mode.
-- **Auto-downscale**: switch the bubble to 320px and watch a fixed-width
-  component get scaled into unreadability.
-- **Tags stripped by the sanitizer** — `canvas`, `form`, `header` and friends.
-- **`getMsgContent()` returning empty** on a top-level call in iframe mode.
-- **`changeMsg` round-trips**: a self-switching component actually switches,
-  repeatedly, because the message box is rewritten and re-parsed for real.
-- **An empty `ai_prompt`**, flagged as a warning — the component would never be
-  invoked in play.
+### 组件来源
 
-## The panels
+默认预览 `src/`。也可以：
 
-**Chat bubble** — the component at a chosen bubble width (320 / 360 / 480 / 680).
-The width is what the runtime's `autoScaleRoot()` measures against, so switching
-it is the fastest way to find layout that breaks on mobile.
+- 点「载入 component.json…」选择文件；
+- 或**把 `component.json` 直接拖进窗口任意位置**。
 
-**Chat input** — `fillInput()` writes here, as it would in the real client.
+导出信封（`{type, version, component:{…}}`）和裸的组件对象都能识别；如果只有单栏位
+`source` 而没有 `html`，会按站点的规则拆出 HTML / CSS / Script。载入外部文件后可以随时
+「回到 src/」。
 
-**Message source** — the raw assistant message being parsed. Edit it to change
-parameters, add prose around the component, or invoke it twice in one message.
-`changeMsg()` rewrites this box for real, which is what makes state machines
-testable.
+### 参数
 
-**Render mode** — the resolved mode, the reason, and warnings.
+自动从 `html` / `css` / `script` 里扫出所有 `$参数$` 占位符，每个给一个输入框。
+**改动即时重渲染** —— 不需要手写调用标签。转义过的 `\$名称\$` 会被正确忽略。
 
-**Injected system prompt** — exactly what the storyline tells the model about
-this component. Empty `ai_prompt` shows up here as nothing at all.
+### 消息内容
 
-**Host activity** — every bridge call that reached the host: toasts, clipboard,
-storage reads/writes, world-book lookups, message edits. `reset storage` clears
-the preview's `localStorage` namespace.
+组件在真实聊天里从来不是孤立出现的，所以这里可以填「组件前的正文」和「组件后的正文」，
+两段都按 Markdown 渲染（站点用的就是 markdown-it，配置相同）。下面的「助手消息原文」
+显示最终拼出来、运行时真正解析的那段文本。
 
-## Trying a component without touching `src/`
+勾选「直接编辑原文」可以完全手写消息 —— 适合测试同一条消息里调用两次组件、
+把组件放进代码块、或者故意写错标签。
 
-The page exposes a debug hook:
+组件调用 `changeMsg()` 时会自动切到原文模式，因为那时候消息就是组件自己写的。
+
+### 聊天输入框
+
+组件调用 `fillInput()` 时文本会写进这里，和真实客户端一样。它**不会发送任何东西** ——
+只是让你确认组件塞给玩家的内容对不对。这是 `fillInput` 唯一的可见效果。
+
+### 渲染模式 / 警告
+
+当前落在哪种模式、为什么，以及会静默出问题的地方：CSS 被 1000 字符上限截断、
+伪类不生效、DSL 脚本要点击才执行、iframe 里 `openUrl` 未定义、`ai_prompt` 为空等。
+
+### 注入的系统提示词
+
+故事线实际告诉模型的内容。`ai_prompt` 为空时这里什么都没有 —— 也就意味着 AI 永远不会调用它。
+
+### 宿主调用记录
+
+每一次到达宿主的桥接调用：toast、剪贴板、存储读写、世界书查询、消息改写。
+「清除本地存储」会清掉预览用的 `localStorage` 命名空间。
+
+## 它能提前发现什么
+
+- **当前是哪种模式**，以及为什么。
+- **CSS 被静默截断**，或 `:hover` / `@keyframes` 在 DSL 模式下根本不生效。
+- **自动缩放**：切到 320px，看固定宽度的组件被整体缩小到看不清。
+- **被消毒器删掉的标签** —— `canvas`、`form`、`header` 等。
+- **`getMsgContent()` 在 iframe 里顶层调用返回空**。
+- **`changeMsg` 来回切换**：自我重调用的组件真的能反复切换，因为消息框被真正改写并重新解析。
+
+## 不改 `src/` 直接试一个组件
+
+页面暴露了调试钩子：
 
 ```js
 __preview.setComponent(
   { name: 'Demo', html: '<div>$T$</div>', css: '.x{}', script: '' },
-  '<$Demo$><T>hello</T></$Demo$>',
+  '<$Demo$><T>你好</T></$Demo$>',
 );
 ```
 
-Useful for pasting someone else's component in, or for driving the page from a
-headless browser.
-
-## Refreshing the frozen runtime
+## 刷新被冻结的运行时
 
 ```bash
-npm run vendor:runtime              # verify the committed copy
-npm run vendor:runtime -- --update  # re-fetch from the live site
+npm run vendor:runtime              # 校验已提交的副本
+npm run vendor:runtime -- --update  # 从线上重新拉取（含样式表子集）
 ```
 
-See [`vendor/README.md`](../../vendor/README.md) — including the licensing note,
-which matters if you fork this repo.
+详见 [`vendor/README.md`](../../vendor/README.md)，其中包含许可证说明 —— fork 本仓库前请先阅读。

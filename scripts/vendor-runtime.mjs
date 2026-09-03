@@ -44,23 +44,106 @@ async function resolveRuntimeUrl() {
   throw new Error('no storyComponents-*.js reference found in any index chunk');
 }
 
+// ── chat/markdown CSS subset ─────────────────────────────────────────────────
+// The app stylesheet is ~490 KB of mostly Tailwind utilities. The preview only
+// needs the design tokens, the chat bubble rules and the markdown-body rules, so
+// we extract those rather than vendoring the whole thing.
+
+const KEEP_SELECTOR = /(chat-msg|chat-bubble|chat-message-row|chat-reply-quote|markdown-body|message-renderer-chunk|story-inline-component)/;
+const KEEP_ROOT = /--bg-app|--color-primary-50\b/;
+
+/** Split a CSS string into top-level { selector, block } rules, honouring at-rules. */
+function splitRules(css) {
+  const rules = [];
+  let i = 0;
+  while (i < css.length) {
+    const open = css.indexOf('{', i);
+    if (open < 0) break;
+    const selector = css.slice(i, open).trim();
+
+    let depth = 0;
+    let j = open;
+    for (; j < css.length; j += 1) {
+      if (css[j] === '{') depth += 1;
+      else if (css[j] === '}') {
+        depth -= 1;
+        if (depth === 0) break;
+      }
+    }
+    rules.push({ selector, body: css.slice(open + 1, j) });
+    i = j + 1;
+  }
+  return rules;
+}
+
+function extractChatCss(css) {
+  const out = [];
+
+  const walk = (rules, wrap) => {
+    for (const { selector, body } of rules) {
+      if (selector.startsWith('@media') || selector.startsWith('@supports')) {
+        const inner = [];
+        walk(splitRules(body), (s, b) => inner.push(`${s}{${b}}`));
+        if (inner.length) out.push(`${selector}{${inner.join('')}}`);
+        continue;
+      }
+      if (selector.startsWith('@')) continue;
+      // Light theme only — the preview mirrors the site's default appearance.
+      if (/(^|[\s,])\.dark(\s|\.|$)/.test(selector)) continue;
+
+      const isRoot = selector.includes(':root') && KEEP_ROOT.test(body);
+      if (isRoot || KEEP_SELECTOR.test(selector)) wrap(selector, body);
+    }
+  };
+
+  walk(splitRules(css), (s, b) => out.push(`${s}{${b}}`));
+  return out.join('\n');
+}
+
+async function resolveCssUrl() {
+  const shell = (await get(`${ORIGIN}/`)).toString('utf8');
+  const m = shell.match(/\/assets\/main-[A-Za-z0-9_-]+\.css/);
+  if (!m) throw new Error('could not find main-*.css in the app shell');
+  return `${ORIGIN}${m[0]}`;
+}
+
 async function update() {
   const { url, via } = await resolveRuntimeUrl();
   const bytes = await get(url);
   const hash = sha256(bytes);
 
+  const cssUrl = await resolveCssUrl();
+  const cssBytes = await get(cssUrl);
+  const subset = extractChatCss(cssBytes.toString('utf8'));
+  const header =
+    '/* Extracted from Fuderation\'s app stylesheet — third-party, NOT covered by\n' +
+    ' * this repository\'s LICENSE. See vendor/README.md.\n' +
+    ` * Source: ${cssUrl}\n` +
+    ' * Subset: design tokens + .chat-msg-* / .markdown-body rules (light theme).\n' +
+    ' * Regenerate with: npm run vendor:runtime -- --update\n */\n';
+
   const prev = existsSync(LOCK) ? JSON.parse(await readFile(LOCK, 'utf8')) : null;
   await writeFile(path.join(VENDOR, 'storyComponents.js'), bytes);
+  await writeFile(path.join(VENDOR, 'site-chat.css'), header + subset + '\n', 'utf8');
+
   await writeFile(
     LOCK,
     JSON.stringify(
       {
         _comment:
-          'Provenance for vendor/storyComponents.js. Third-party, not covered by this repo LICENSE. See vendor/README.md.',
-        url,
-        resolvedVia: via,
-        sha256: hash,
-        bytes: bytes.length,
+          'Provenance for vendor/. Third-party, not covered by this repo LICENSE. See vendor/README.md.',
+        runtime: {
+          url,
+          resolvedVia: via,
+          sha256: hash,
+          bytes: bytes.length,
+        },
+        css: {
+          url: cssUrl,
+          sha256: sha256(cssBytes),
+          sourceBytes: cssBytes.length,
+          extractedBytes: subset.length,
+        },
         fetchedAt: new Date().toISOString().slice(0, 10),
       },
       null,
@@ -70,13 +153,15 @@ async function update() {
   );
 
   console.log(`✓ vendored ${url}`);
-  console.log(`  sha256 ${hash}`);
-  console.log(`  ${bytes.length} bytes`);
+  console.log(`  sha256 ${hash}  (${bytes.length} bytes)`);
+  console.log(`✓ extracted chat CSS from ${cssUrl}`);
+  console.log(`  ${subset.length} of ${cssBytes.length} bytes kept`);
 
-  if (prev && prev.sha256 !== hash) {
+  const prevHash = prev?.runtime?.sha256 ?? prev?.sha256;
+  if (prevHash && prevHash !== hash) {
     console.warn('');
     console.warn('!  The runtime changed since the last vendoring.');
-    console.warn(`   was ${prev.sha256} (${prev.fetchedAt})`);
+    console.warn(`   was ${prevHash} (${prev.fetchedAt})`);
     console.warn(`   now ${hash}`);
     console.warn('   Re-verify RUNTIME_INTERNALS.md before trusting its findings.');
   }
@@ -85,17 +170,22 @@ async function update() {
 async function verify() {
   if (!existsSync(LOCK)) throw new Error('vendor/runtime.lock.json is missing — run with --update');
   const lock = JSON.parse(await readFile(LOCK, 'utf8'));
+  const expected = lock.runtime?.sha256 ?? lock.sha256;
   const file = path.join(VENDOR, 'storyComponents.js');
   if (!existsSync(file)) throw new Error('vendor/storyComponents.js is missing — run with --update');
 
   const hash = sha256(await readFile(file));
-  if (hash !== lock.sha256) {
+  if (hash !== expected) {
     console.error('✗ vendor/storyComponents.js does not match the lockfile');
-    console.error(`   expected ${lock.sha256}`);
+    console.error(`   expected ${expected}`);
     console.error(`   actual   ${hash}`);
     process.exit(1);
   }
-  console.log(`✓ runtime matches lockfile (${lock.sha256.slice(0, 16)}…, fetched ${lock.fetchedAt})`);
+  if (!existsSync(path.join(VENDOR, 'site-chat.css'))) {
+    console.error('✗ vendor/site-chat.css is missing — run with --update');
+    process.exit(1);
+  }
+  console.log(`✓ runtime matches lockfile (${expected.slice(0, 16)}…, fetched ${lock.fetchedAt})`);
 }
 
 const args = process.argv.slice(2);
