@@ -386,7 +386,7 @@ to the other, carrying state in the parameter tags — see
 - Component name: 32 chars max
 - Description: 120 chars max
 - AI supplementary prompt: 1,000 chars max (counts toward storyline total)
-- DSL mode: 1,000 chars of CSS max; only the first 32 bridge calls are validated (keep scripts under 32 — the rest is unspecified)
+- DSL mode: 1,000 chars of CSS max; only the first 32 **statements** are validated (not the first 32 bridge calls — a non-bridge line among them is exactly what fails validation). Keep scripts under 32 statements; past that is unspecified.
 - `openUrl`: `http`/`https` only, DSL mode only
 - No real networking, auth, payment, or backend operations
 - VN mode: components disabled

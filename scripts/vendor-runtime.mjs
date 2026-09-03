@@ -79,51 +79,124 @@ async function resolveMarkdownUrl() {
   throw new Error('no useMarkdown-*.js reference found in any index chunk');
 }
 
+// These extractors FAIL CLOSED. Every value below changes what the preview
+// renders, and a silently-wrong rule is worse than a broken --update: an empty
+// ALLOWED_TAGS strips every tag, a missing handler rule keeps a handler the
+// client removes. Since verify() can only re-hash what update() wrote, a bad
+// extraction would pin itself and pass verification forever. So a miss throws
+// with the offending key named, and --update stops rather than writing a guess.
+
+/** Read one brace-balanced object literal starting at `start`. */
+function objectLiteralAt(js, start) {
+  let depth = 0;
+  for (let i = start; i < js.length; i += 1) {
+    if (js[i] === '{') depth += 1;
+    else if (js[i] === '}' && --depth === 0) return js.slice(start, i + 1);
+  }
+  throw new Error('unbalanced object literal in the markdown chunk');
+}
+
+/** Read one brace-balanced function body starting at `start`. */
+function functionBodyAt(js, start) {
+  const open = js.indexOf('{', start);
+  if (open < 0) throw new Error('no function body found in the markdown chunk');
+  return objectLiteralAt(js, open);
+}
+
 /** Pull the DOMPurify config object literal out of the minified chunk. */
 function extractSanitizeConfig(js) {
   const start = js.indexOf('{ALLOWED_TAGS:');
   if (start < 0) throw new Error('markdown sanitiser config not found (ALLOWED_TAGS)');
-  let depth = 0;
-  let end = start;
-  for (; end < js.length; end += 1) {
-    if (js[end] === '{') depth += 1;
-    else if (js[end] === '}' && --depth === 0) break;
-  }
-  const literal = js.slice(start, end + 1);
+  const literal = objectLiteralAt(js, start);
 
-  const list = (key) => {
+  const list = (key, { required }) => {
     const m = literal.match(new RegExp(`${key}:\\[([^\\]]*)\\]`));
-    return m ? [...m[1].matchAll(/"([^"]*)"/g)].map((x) => x[1]) : [];
+    if (!m) {
+      if (required) throw new Error(`markdown sanitiser: ${key} not found — upstream format changed`);
+      return [];
+    }
+    const items = [...m[1].matchAll(/"([^"]*)"/g)].map((x) => x[1]);
+    if (required && !items.length) {
+      throw new Error(`markdown sanitiser: ${key} parsed as empty — upstream format changed`);
+    }
+    return items;
   };
-  const uri = literal.match(/ALLOWED_URI_REGEXP:\/((?:[^/\\]|\\.)+)\//);
 
-  return {
-    ALLOWED_TAGS: list('ALLOWED_TAGS'),
-    ALLOWED_ATTR: list('ALLOWED_ATTR'),
-    ADD_ATTR: list('ADD_ATTR'),
-    ALLOW_DATA_ATTR: /ALLOW_DATA_ATTR:!?0|ALLOW_DATA_ATTR:(?:true|!0)/.test(literal)
-      ? !/ALLOW_DATA_ATTR:(?:false|!1)/.test(literal)
-      : true,
-    ALLOWED_URI_REGEXP: uri ? uri[1] : null,
+  // Minifiers emit booleans as `!0` / `!1` as readily as `true` / `false`, and
+  // guessing `true` on a miss would keep data-* attributes the site strips.
+  const flag = (key) => {
+    const m = literal.match(new RegExp(`${key}:(!0|!1|true|false|0|1)(?=[,}])`));
+    if (!m) throw new Error(`markdown sanitiser: ${key} not found — upstream format changed`);
+    return m[1] === '!0' || m[1] === 'true' || m[1] === '1';
   };
+
+  const uri = literal.match(/ALLOWED_URI_REGEXP:\/((?:[^/\\]|\\.)+)\//);
+  if (!uri) {
+    throw new Error('markdown sanitiser: ALLOWED_URI_REGEXP not found — upstream format changed');
+  }
+  new RegExp(uri[1], 'i'); // throws here rather than in the browser
+
+  const config = {
+    ALLOWED_TAGS: list('ALLOWED_TAGS', { required: true }),
+    ALLOWED_ATTR: list('ALLOWED_ATTR', { required: true }),
+    ADD_ATTR: list('ADD_ATTR', { required: false }), // genuinely optional
+    ALLOW_DATA_ATTR: flag('ALLOW_DATA_ATTR'),
+    ALLOWED_URI_REGEXP: uri[1],
+  };
+
+  // A parse that succeeds but yields a handful of entries means we latched onto
+  // the wrong literal. The real config is ~70 tags and ~56 attributes.
+  if (config.ALLOWED_TAGS.length < 20 || config.ALLOWED_ATTR.length < 20) {
+    throw new Error(
+      `markdown sanitiser: implausibly small config ` +
+        `(${config.ALLOWED_TAGS.length} tags, ${config.ALLOWED_ATTR.length} attrs) — ` +
+        'upstream format changed, refusing to pin it',
+    );
+  }
+  return config;
 }
 
 /** Pull stage 2 — the event-handler whitelist and the blanket strip list. */
 function extractHandlerRules(js) {
   const m = js.match(/function \w+\(\w+\)\{const \w+=\[(\/[\s\S]*?)\];return/);
-  if (!m) throw new Error('markdown handler post-pass not found');
+  if (!m) throw new Error('markdown handler post-pass not found — upstream format changed');
   const allow = [...m[1].matchAll(/\/((?:[^/\\]|\\.)+)\/i/g)].map((x) => x[1]);
-
-  const body = js.slice(js.indexOf(m[0]), js.indexOf(m[0]) + 2000);
-  const onerror = body.match(/onerror[\s\S]{0,120}?\/((?:[^/\\]|\\.)*onerror[^/\\]*)\//);
-  const blanket = body.match(/on\(\?:((?:load|[a-z|]+)+)\)/);
-
   if (!allow.length) throw new Error('markdown handler whitelist came back empty');
+
+  // Bound to the actual function body rather than a fixed byte window, so a
+  // longer post-pass cannot silently truncate the rules we read out of it.
+  const body = functionBodyAt(js, js.indexOf(m[0]));
+
+  // Confirm this really is the handler post-pass before trusting anything in it.
+  if (!/onclick/.test(body) || !/onerror/.test(body)) {
+    throw new Error('markdown handler post-pass has no onclick/onerror rules — wrong function matched');
+  }
+  if (allow.length < 5) {
+    throw new Error(`markdown handler whitelist implausibly short (${allow.length}) — upstream format changed`);
+  }
+
+  // Anchored on `=>/…/.test(`, which is the arrow body that decides whether an
+  // onerror survives. A looser search finds the *matcher* regex
+  // (/\s+onerror\s*=\s*"([^"]*)"/) instead and pins the wrong rule — which is
+  // exactly what the earlier hardcoded fallback was quietly papering over.
+  const onerror = body.match(/=>\/((?:[^/\\]|\\.)+)\/\.test\(/);
+  if (!onerror) throw new Error('markdown onerror allow-rule not found — upstream format changed');
+  if (!/onerror/.test(onerror[1])) {
+    throw new Error(`markdown onerror allow-rule looks wrong: /${onerror[1]}/`);
+  }
+
+  const blanket = body.match(/on\(\?:((?:load|[a-z|]+)+)\)/);
   if (!blanket) throw new Error('markdown blanket handler strip list not found');
+  if (blanket[1].split('|').length < 5) {
+    throw new Error('markdown blanket strip list implausibly short — upstream format changed');
+  }
+
+  for (const src of allow) new RegExp(src, 'i'); // fail here, not in the browser
+  new RegExp(onerror[1]);
 
   return {
     onclickAllow: allow,
-    onerrorAllow: onerror ? onerror[1] : 'this\\.onerror\\s*=\\s*null',
+    onerrorAllow: onerror[1],
     alwaysStrip: blanket[1].split('|'),
   };
 }
@@ -350,11 +423,30 @@ async function verify() {
       console.error('✗ vendor/markdown-sanitize.json is missing — run with --update');
       process.exit(1);
     }
-    const sanHash = sha256(await readFile(sanFile));
+    const sanRaw = await readFile(sanFile);
+    const sanHash = sha256(sanRaw);
     if (sanHash !== sanExpected) {
       console.error('✗ vendor/markdown-sanitize.json does not match the lockfile');
       console.error(`   expected ${sanExpected}`);
       console.error(`   actual   ${sanHash}`);
+      process.exit(1);
+    }
+    // The hash proves the bytes are what --update wrote; this proves those bytes
+    // are still usable. Every rule below is compiled into a live RegExp by the
+    // preview, so a malformed one would surface as a blank page, not an error.
+    try {
+      const san = JSON.parse(sanRaw.toString('utf8'));
+      if (!san.config?.ALLOWED_TAGS?.length || !san.config?.ALLOWED_ATTR?.length) {
+        throw new Error('config has an empty allowlist');
+      }
+      if (!san.handlers?.onclickAllow?.length || !san.handlers?.alwaysStrip?.length) {
+        throw new Error('handler rules are empty');
+      }
+      for (const src of san.handlers.onclickAllow) new RegExp(src, 'i');
+      new RegExp(san.handlers.onerrorAllow);
+      if (san.config.ALLOWED_URI_REGEXP) new RegExp(san.config.ALLOWED_URI_REGEXP, 'i');
+    } catch (err) {
+      console.error(`✗ vendor/markdown-sanitize.json is unusable: ${err.message}`);
       process.exit(1);
     }
   }
@@ -364,5 +456,9 @@ async function verify() {
   if (sanExpected) console.log(`✓ markdown-sanitize.json matches lockfile (${sanExpected.slice(0, 16)}…)`);
 }
 
+export { extractSanitizeConfig, extractHandlerRules };
+
 const args = process.argv.slice(2);
-await (args.includes('--update') ? update() : verify());
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  await (args.includes('--update') ? update() : verify());
+}
