@@ -27,7 +27,33 @@ const LIMITS = {
   description: 120,
   aiPrompt: 1000,
   source: 20000, // html + css + script combined
+  dslCss: 1000, // DSL mode flattens CSS to inline styles, reading only this much
+  dslCalls: 32, // DSL mode parses at most this many bridge calls
 };
+
+// Component name charset, matching the runtime's own regex:
+//   /<\$\s*([A-Za-z0-9_\-一-龥]{1,32})\s*\$>/
+// Note U+9FA5, not U+9FFF — a few rare CJK ideographs are excluded.
+const NAME_RE = /^[A-Za-z0-9_\-一-龥]+$/;
+
+// The runtime's advanced-JS detector. A match forces sandboxed iframe mode.
+const NATIVE_JS_RE =
+  /(?:^|[\s;(])(const|let|var|function|if|for|while|return)\b|=>|document\.|window\.|setInterval\s*\(|setTimeout\s*\(|requestAnimationFrame\s*\(|new\s+Date\s*\(/i;
+
+// A DSL statement: a single whitelisted call, nothing else.
+const DSL_CALL_RE = /^([A-Za-z_][A-Za-z0-9_]*)\s*\([\s\S]*\)$/;
+
+const BRIDGE_FNS = new Set([
+  'fillInput', 'saveToLocal', 'readFromLocal', 'getWorldInfo', 'copyText',
+  'toast', 'appendMsg', 'changeMsg', 'tempAppendMsg', 'tempChangeMsg',
+  'getMsgContent', 'getUserAvatar', 'getCurrentUserAvatar', 'getCharAvatar',
+  'getCurrentCharAvatar', 'openUrl', 'setText', 'setValue', 'show', 'hide',
+  'addClass', 'removeClass', 'setStyle', 'progress', 'wait', 'requireInputEquals',
+]);
+
+// CSS features that force iframe mode when the component has no script.
+const CSS_AT_RULE_RE = /@(?:media|supports|keyframes|font-face|layer|container|property)\b/i;
+const CSS_GLOBAL_SEL_RE = /(^|[\s,{>+~])(?:html|body|:root)(?=[\s.#:[>+~,{]|$)/i;
 
 async function loadEsbuild() {
   try {
@@ -75,8 +101,10 @@ function validate(component) {
   if (!component.name) errs.push('meta.json "name" is required');
   if (component.name.length > LIMITS.name)
     errs.push(`name is ${component.name.length} chars (max ${LIMITS.name})`);
-  if (!/^[A-Za-z0-9_\-一-鿿]+$/.test(component.name))
-    errs.push('name may only contain letters, digits, "-", "_", or CJK characters');
+  if (!NAME_RE.test(component.name))
+    errs.push('name may only contain letters, digits, "-", "_", or CJK characters (U+4E00–U+9FA5)');
+  if (!component.html)
+    errs.push('src/markup.html is empty — the importer drops components with no html');
   if (component.description.length > LIMITS.description)
     errs.push(`description is ${component.description.length} chars (max ${LIMITS.description})`);
   if (component.ai_prompt.length > LIMITS.aiPrompt)
@@ -85,6 +113,81 @@ function validate(component) {
   if (combined > LIMITS.source)
     errs.push(`html+css+script is ${combined} chars (max ${LIMITS.source})`);
   return errs;
+}
+
+// Mirror the runtime's mode dispatch so the build can warn about the footguns
+// that mode selection creates. See RUNTIME_INTERNALS.md §1–§3.
+function analyseMode(component) {
+  const { html, css, script } = component;
+  const warnings = [];
+
+  let mode;
+  let reason;
+
+  if (script) {
+    const statements = script
+      .split(/[\r\n;]+/)
+      .map((s) => s.trim())
+      .filter((s) => s && !s.startsWith('//'));
+    const considered = statements.slice(0, LIMITS.dslCalls);
+    const badCall = considered.find((s) => {
+      const m = s.match(DSL_CALL_RE);
+      return !m || !BRIDGE_FNS.has(m[1]);
+    });
+
+    if (NATIVE_JS_RE.test(script)) {
+      mode = 'iframe';
+      reason = 'script contains native JS';
+    } else if (badCall) {
+      mode = 'iframe';
+      reason = `script has a non-DSL statement (${badCall.slice(0, 40)}…)`;
+    } else if (statements.length > LIMITS.dslCalls) {
+      mode = 'iframe';
+      reason = `script has ${statements.length} calls (DSL parses only ${LIMITS.dslCalls})`;
+    } else {
+      mode = 'dsl';
+      reason = `${statements.length} whitelisted bridge call(s)`;
+    }
+  } else if (/<\s*(html|head|body)\b/i.test(html)) {
+    mode = 'iframe';
+    reason = 'markup contains a full-document tag';
+  } else if (css.length > LIMITS.dslCss) {
+    mode = 'iframe';
+    reason = `css is ${css.length} chars (> ${LIMITS.dslCss})`;
+  } else if (CSS_AT_RULE_RE.test(css)) {
+    mode = 'iframe';
+    reason = 'css contains an at-rule';
+  } else if (CSS_GLOBAL_SEL_RE.test(css)) {
+    mode = 'iframe';
+    reason = 'css targets html/body/:root';
+  } else {
+    mode = 'dsl';
+    reason = 'no script, plain css';
+  }
+
+  if (mode === 'dsl') {
+    if (css.length > LIMITS.dslCss) {
+      warnings.push(
+        `DSL mode reads only the first ${LIMITS.dslCss} chars of css — ` +
+          `${css.length - LIMITS.dslCss} chars will be silently dropped.`,
+      );
+    }
+    if (CSS_AT_RULE_RE.test(css)) {
+      warnings.push('DSL mode skips @-rules — @media/@keyframes/@font-face will not apply.');
+    }
+    if (/:(?:hover|focus|active|nth-|before|after)|::/.test(css)) {
+      warnings.push('DSL mode flattens css to inline styles — pseudo-classes/elements never apply.');
+    }
+    if (script) {
+      warnings.push('DSL scripts run on CLICK, not on mount. Use src/script.ts to run on render.');
+    }
+  }
+
+  if (mode === 'iframe' && /\bopenUrl\s*\(/.test(script)) {
+    warnings.push('openUrl() is undefined in iframe mode — it will throw a ReferenceError.');
+  }
+
+  return { mode, reason, warnings };
 }
 
 async function main() {
@@ -129,7 +232,15 @@ async function main() {
   await writeFile(OUT, JSON.stringify(envelope, null, 2) + '\n', 'utf8');
 
   const total = component.html.length + component.css.length + component.script.length;
-  console.log(`✓ ${component.name} → ${path.relative(process.cwd(), OUT)}  (${total}/${LIMITS.source} chars)`);
+  const { mode, reason, warnings } = analyseMode(component);
+  console.log(
+    `✓ ${component.name} → ${path.relative(process.cwd(), OUT)}  ` +
+      `(${total}/${LIMITS.source} chars, ${mode} mode: ${reason})`,
+  );
+  if (!component.ai_prompt) {
+    warnings.push('ai_prompt is empty — the AI is never told this component exists.');
+  }
+  for (const w of warnings) console.warn(`    ! ${w}`);
 }
 
 main().catch((err) => {

@@ -1,0 +1,18 @@
+{
+  "type": "fuderation_story_component",
+  "version": 1,
+  "exported_at": "2026-08-19T03:12:40.439Z",
+  "creator": {
+    "username": "Charlin",
+    "display_id": 10001
+  },
+  "component": {
+    "name": "VideoCom",
+    "html": "<div class=\"template-player\">\n  <div class=\"template-header\">\n    <span class=\"template-icon\">▶</span>\n    <span class=\"template-title\">$标题$</span>\n  </div>\n  \n  <video \n    id=\"template-video\"\n    controls \n    preload=\"metadata\"\n    width=\"100%\"\n    style=\"border-radius: 12px; background: #0a0a0f; display: block;\"\n  >\n    <source id=\"video-source\" src=\"$视频地址$\" type=\"video/mp4\">\n    您的浏览器不支持视频播放。\n  </video>\n  \n  <div class=\"template-desc\" data-desc style=\"display:none;\">$说明文字$</div>\n  \n  <div class=\"template-actions\">\n    <button class=\"btn-copy\" data-copy-btn>复制视频链接</button>\n  </div>\n</div>",
+    "css": ".template-player {\n  border: 1px solid #6366f1;\n  border-radius: 18px;\n  padding: 16px;\n  background: linear-gradient(180deg, #0f0f1a, #1a1a2e);\n  color: #e0e0f0;\n  max-width: 100%;\n  box-shadow: 0 8px 32px rgba(99, 102, 241, 0.15);\n}\n\n.template-header {\n  display: flex;\n  align-items: center;\n  gap: 10px;\n  margin-bottom: 12px;\n}\n\n.template-icon {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  width: 28px;\n  height: 28px;\n  background: linear-gradient(135deg, #818cf8, #6366f1);\n  border-radius: 8px;\n  font-size: 12px;\n  color: #fff;\n}\n\n.template-title {\n  font-weight: 700;\n  font-size: 15px;\n  color: #c7d2fe;\n  letter-spacing: 0.3px;\n}\n\n.template-desc {\n  margin-top: 10px;\n  font-size: 13px;\n  color: #94a3b8;\n  padding: 8px 12px;\n  background: rgba(99, 102, 241, 0.08);\n  border-radius: 8px;\n  border-left: 3px solid #6366f1;\n}\n\n.template-actions {\n  margin-top: 12px;\n  display: flex;\n  gap: 8px;\n}\n\n.btn-copy {\n  padding: 6px 16px;\n  border-radius: 8px;\n  border: none;\n  background: rgba(99, 102, 241, 0.15);\n  color: #a5b4fc;\n  font-size: 12px;\n  cursor: pointer;\n  transition: background 0.2s;\n}\n\n.btn-copy:hover {\n  background: rgba(99, 102, 241, 0.3);\n}",
+    "script": "const desc = '$说明文字$'\nif (desc && desc.trim() !== '' && desc.trim() !== '$说明文字$') {\n  setText('[data-desc]', desc)\n  show('[data-desc]')\n}\n\n\n\nsetValue('#template-video', '$视频地址$')\nsetValue('#video-source', '$视频地址$')\n\n\n\n\n\n\n\nconst btn = document.querySelector('[data-copy-btn]')\nif (btn) {\n  btn.addEventListener('click', function() {\n    const videoSrc = document.getElementById('template-video')?.src || ''\n    if (videoSrc) {\n      copyText(videoSrc)\n      toast('视频链接已复制', 'success')\n    } else {\n      toast('未找到视频地址', 'error')\n    }\n  })\n}",
+    "source": "",
+    "ai_prompt": "",
+    "description": "<$模板预览$>   <标题>模板库升级预览</标题>   <视频地址>https://screenapp.io/screenapp-resources/upgrade-view/videos/v1/templates.mp4</视频地址>"
+  }
+}

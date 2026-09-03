@@ -78,20 +78,59 @@ npm run build      # 生成 ./component.json
 > 注意：若 `main` 开启了分支保护并禁止直接推送，需要允许 `github-actions` 机器人推送
 > （或改用具备写权限的 PAT），CI 的回推才能成功。
 
+## 两种渲染模式（重要）
+
+运行时会为每个组件选择 **DSL（内联）** 或 **iframe（沙箱）** 模式，二者行为差异很大。
+`npm run build` 会打印判定结果与相应警告。
+
+| | DSL 模式 | iframe 模式 |
+|---|---|---|
+| CSS | **被摊平成内联 `style` 属性**；只读前 1000 字符；`@media`/`@keyframes` 被跳过；`:hover`、`::before` 完全不生效 | 真正的 `<style>` 样式表，一切正常 |
+| 脚本执行时机 | **点击组件时** | **挂载时** |
+| 桥接函数 | 全部 26 个，同步 | 除 `openUrl` 外全部；存储 / 世界书 / `progress` / `wait` 变为异步 |
+
+**进入 iframe 模式的条件**（满足其一）：
+
+1. 脚本命中原生 JS 检测（`const`/`function`/`=>`/`document.`/`setTimeout(` 等）；
+2. 脚本存在非白名单调用，或调用数超过 32 条；
+3. *（无脚本时）* HTML 含 `<html`/`<head`/`<body`；
+4. *（无脚本时）* **CSS 超过 1000 字符**；
+5. *（无脚本时）* CSS 含 `@media`/`@supports`/`@keyframes`/`@font-face` 等 at-rule；
+6. *（无脚本时）* CSS 选中了 `html`/`body`/`:root`。
+
+编译产物（`script.ts`）必然命中第 1 条。若是**静态组件**又需要完整 CSS，
+可以故意用第 4 或第 5 条把它推进 iframe——加一个 `@media` 块就够了。
+
+⚠️ 「纯 DSL 脚本 + 超过 1000 字符的 CSS」会停留在 DSL 模式并**静默丢弃多余样式**，
+构建会就此告警。
+
 ## 约束（构建时校验）
 
-- `name` ≤ 32 字符；仅限字母、数字、`-`、`_`、CJK 字符。
+- `name` ≤ 32 字符；仅限字母、数字、`-`、`_`、CJK 字符（U+4E00–U+9FA5）。
+- `markup.html` 不可为空——导入端会丢弃没有 html 的组件。
 - `description` ≤ 120 字符；`ai_prompt` ≤ 1000 字符。
+  `ai_prompt` 为空时，AI 根本不会被告知该组件的存在。
 - `html` + `css` + `script` 合计 ≤ 20000 字符。
-- 禁止真实联网、真实登录、真实支付。组件在 VN 模式下不生效。
+- DSL 模式额外限制：最多 32 条桥接调用、最多 1000 字符 CSS。
+- 禁止真实联网、真实登录、真实支付。**也不能加载外部字体**
+  （iframe CSP 的 `font-src` 只允许 `data:`，Google Fonts 会静默失败）。
+- 组件在 VN 模式下不生效。
 
 ## 了解更多
 
-- 创作流程、桥接函数 DSL 参考与完整示例：
-  [`.agents/skills/fuderation-component-builder/`](.agents/skills/fuderation-component-builder/)。
+- 创作流程与桥接函数 DSL 参考：
+  [`SKILL.md`](.agents/skills/fuderation-component-builder/SKILL.md)。
+- 运行时逆向记录（渲染模式、消毒规则、尺寸与异步桥接）：
+  [`RUNTIME_INTERNALS.md`](.agents/skills/fuderation-component-builder/RUNTIME_INTERNALS.md)。
+- 带注解的真实组件示例（媒体卡、骰子、自切换消息、双组件状态机）：
+  [`EXAMPLES.md`](.agents/skills/fuderation-component-builder/EXAMPLES.md)。
+- 完整单组件走查：
+  [`EXAMPLE_PASSWORD_GATE.md`](.agents/skills/fuderation-component-builder/EXAMPLE_PASSWORD_GATE.md)。
 - 设计令牌与样式指南：
   [`.agents/skills/frontend-design/`](.agents/skills/frontend-design/)。
-- 官方指南：<https://chat.fuderation.com/guide#component-guide-section-1>。
+- 官方指南：<https://chat.fuderation.com/guide#component-guide-section-1>
+  （已逐字归档于
+  [`reference/OFFICIAL_GUIDE_zh.md`](.agents/skills/fuderation-component-builder/reference/OFFICIAL_GUIDE_zh.md)）。
 
 ## 许可证
 
