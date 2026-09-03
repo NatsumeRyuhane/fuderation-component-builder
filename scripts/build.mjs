@@ -7,7 +7,8 @@
 //   src/markup.html   -> component.html    (trim only — NOT minified)
 //   src/styles.css    -> component.css     (trim only — NOT minified)
 //   src/script.ts     -> component.script  (esbuild, minified; runs in iframe mode)
-//   src/script.js     -> component.script  (trim only — NOT minified; keeps DSL mode)
+//   src/script.js     -> component.script  (trim only — NOT minified; mode depends
+//                                            on contents, see analyseMode)
 //   src/ai_prompt.md  -> component.ai_prompt
 //   src/meta.json     -> component.name / component.description
 //

@@ -29,7 +29,7 @@ src/
 ├── markup.html      # HTML only               -> component.html    (NOT minified)
 ├── styles.css       # styles                  -> component.css     (NOT minified)
 ├── script.ts        # compiled + MINIFIED     -> component.script  (iframe mode)
-├── script.js        # OR verbatim passthrough -> component.script  (DSL mode)
+├── script.js        # OR verbatim passthrough -> component.script  (DSL only if pure)
 ├── ai_prompt.md     # AI supplementary prompt -> component.ai_prompt
 └── meta.json        # { "name", "description" }
 component.json       # BUILD OUTPUT (generated, gitignored) — import into Workshop
