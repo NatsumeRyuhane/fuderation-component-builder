@@ -26,9 +26,9 @@ the repo root; the build assembles a single importable `component.json`.
 
 ```text
 src/
-├── markup.html      # HTML only               -> component.html
-├── styles.css       # styles                  -> component.css
-├── script.ts        # compiled w/ esbuild     -> component.script  (iframe mode)
+├── markup.html      # HTML only               -> component.html    (NOT minified)
+├── styles.css       # styles                  -> component.css     (NOT minified)
+├── script.ts        # compiled + MINIFIED     -> component.script  (iframe mode)
 ├── script.js        # OR verbatim passthrough -> component.script  (DSL mode)
 ├── ai_prompt.md     # AI supplementary prompt -> component.ai_prompt
 └── meta.json        # { "name", "description" }
@@ -40,6 +40,12 @@ Use **either** `script.ts` **or** `script.js`, never both. Run `npm run build`
 build validates the platform limits and warns about mode-related footguns.
 `component.json` is generated and gitignored — it does not exist until you build.
 Import the JSON into Workshop: open the storyline → **Components** → import.
+
+`script.ts` is the **only** file the build minifies. HTML, CSS and `script.js`
+are written out as authored, so the char budgets under **Platform limits** count
+your comments and indentation. `script.js` is left alone on purpose — minifying
+it comma-merges adjacent bridge calls into one statement that still passes the
+runtime's pure-DSL check and is then mis-parsed.
 
 ### Importing preexisting component code
 
@@ -382,11 +388,11 @@ to the other, carrying state in the parameter tags — see
 ### Platform limits
 
 - 30 components per storyline (site-configurable default)
-- 20,000 chars per component (HTML + CSS + script combined)
+- 20,000 chars per component (HTML + CSS + script combined) — counted on the **unminified** source; only `script.ts` is compressed by the build
 - Component name: 32 chars max
 - Description: 120 chars max
 - AI supplementary prompt: 1,000 chars max (counts toward storyline total)
-- DSL mode: 1,000 chars of CSS max; only the first 32 **statements** are validated (not the first 32 bridge calls — a non-bridge line among them is exactly what fails validation). Keep scripts under 32 statements; past that is unspecified.
+- DSL mode: 1,000 chars of CSS max (unminified, comments included — the overflow is dropped silently); only the first 32 **statements** are validated (not the first 32 bridge calls — a non-bridge line among them is exactly what fails validation). Keep scripts under 32 statements; past that is unspecified.
 - `openUrl`: `http`/`https` only, DSL mode only
 - No real networking, auth, payment, or backend operations
 - VN mode: components disabled
