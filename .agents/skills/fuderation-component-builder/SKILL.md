@@ -9,6 +9,16 @@ A Workshop component is a **storyline-scoped widget** that renders inline in a s
 
 Common uses: info cards, task panels, mock login screens, progress bars, copy-to-clipboard buttons, quizzes, verification panels.
 
+## Reference material in this skill
+
+| File | Use it for |
+|---|---|
+| `npm run preview` | **Render `src/` locally through the real runtime** in a mock chat bubble — shows the resolved mode, CSS truncation, auto-downscale, sanitizer stripping, and a working host bridge (`changeMsg` round-trips). See [tools/preview/README.md](../../../tools/preview/README.md). |
+| [reference/OFFICIAL_GUIDE_zh.md](reference/OFFICIAL_GUIDE_zh.md) | The official creator guide, verbatim (Chinese). Source of truth for intent. |
+| [RUNTIME_INTERNALS.md](RUNTIME_INTERNALS.md) | Reverse-engineered runtime behaviour: execution modes, sanitizer, sizing, async bridge. Source of truth for what actually happens. |
+| [EXAMPLES.md](EXAMPLES.md) | Four annotated real-world components (media card, dice, self-switching message, two-component state machine). |
+| [EXAMPLE_PASSWORD_GATE.md](EXAMPLE_PASSWORD_GATE.md) | One complete `src/` → `component.json` walkthrough. |
+
 ## Repository layout
 
 This repo is a **one-component-per-repo template**. Author source in `src/` at
@@ -27,9 +37,9 @@ component.json       # BUILD OUTPUT (generated, gitignored) — import into Work
 
 Use **either** `script.ts` **or** `script.js`, never both. Run `npm run build`
 (or `node scripts/build.mjs`) to (compile and) assemble `component.json`; the
-build validates the platform limits. `component.json` is generated and
-gitignored — it does not exist until you build. Import the JSON into Workshop:
-open the storyline → **Components** → import.
+build validates the platform limits and warns about mode-related footguns.
+`component.json` is generated and gitignored — it does not exist until you build.
+Import the JSON into Workshop: open the storyline → **Components** → import.
 
 ### Importing preexisting component code
 
@@ -43,6 +53,11 @@ block, or an exported `component.json`):
 3. Run the [debugging checklist](#debugging-checklist) and fix issues.
 4. Run `npm run build` and confirm it passes validation.
 5. Present a summary of what was organized and any fixes applied.
+
+Workshop's own editor is a **single field** holding HTML + `<style>` + `<script>`
+(or a complete HTML document); it splits those into the three fields on save. An
+exported `component.json` may therefore carry a populated `source` alongside
+`html`/`css`/`script` — split from `source` if the three are empty.
 
 ## Build workflow
 
@@ -77,16 +92,24 @@ Produce a working component with **no script file**. This isolates rendering and
 3. Set `name` and `description` in `src/meta.json`.
 4. Run `npm run build` and confirm `component.json` is produced within limits.
 
-After delivering, suggest the user import `component.json` into Workshop and run a **playtest**. Explain that preview alone is insufficient — the real test is whether the AI invokes the component correctly in a live chat.
+Check which [execution mode](#execution-modes) the static component lands in — a
+scriptless component with small, plain CSS renders **inline, with its CSS
+flattened into inline style attributes**, which silently kills hover states and
+animation.
+
+Run `npm run preview` to see it rendered by the real runtime at several bubble
+widths before handing it over. Then suggest the user import `component.json` into Workshop and run a **playtest**. Local preview shows how it *renders*; only a playtest proves the AI will *invoke* it. Workshop's own editor preview proves neither — it always uses an iframe and never substitutes `$param$` values.
 
 ### Phase 3 — Add interactivity
 
 Only after the static version renders correctly in playtest, add a script using bridge functions:
 
-- **`src/script.js`** — passed through verbatim; write one bridge call per line to keep lightweight **DSL mode**. Prefer this for simple components, using the [safe default set](#safe-defaults).
-- **`src/script.ts`** — compiled by esbuild to an inline IIFE (always **iframe mode**). Use for complex logic. Treat bridge functions as ambient globals (declared in `types/bridge.d.ts`); never `import` them, and do not use `fetch`/networking.
+- **`src/script.js`** — passed through verbatim. Write one bridge call per line, using only whitelisted names, to keep lightweight **DSL mode**. (Only the first 32 statements are validated; statements past that are neither checked nor guaranteed to run, so keep scripts under 32 calls.) Prefer this for simple components, using the [safe default set](#safe-defaults). Remember a DSL script is a **click handler** — it runs when the user clicks the component, not on render.
+- **`src/script.ts`** — compiled by esbuild to an inline IIFE (always **iframe mode**). Use for complex logic, event listeners, or anything that must run on mount. Treat bridge functions as ambient globals (declared in `types/bridge.d.ts`); never `import` them, and do not use `fetch`/networking.
 
-If the component has an input field, the trigger button **must** include `data-component-trigger="1"`. Re-run `npm run build` after changes.
+If the component has an input field, give the trigger button `data-component-trigger="1"` — it stops Enter inside the input from firing the global chat send.
+
+Re-run `npm run build` after changes.
 
 ### Phase 4 — Iterate
 
@@ -102,12 +125,15 @@ When iterating, **edit the existing `src/` files in place** — do not regenerat
 
 When a component fails, check these in order:
 1. Is the component saved in the current storyline?
-2. Does the component name match exactly (case-sensitive)?
+2. Does the component name match? (Matching is case-insensitive, but stick to exact.)
 3. Are outer `<$...$>` tags closed?
-4. Do all `$Param$` placeholders in source match `<Param>` tags in AI output?
-5. Is VN mode off?
-6. Does the AI supplementary prompt include a minimal invocation example?
-7. Does the button have `data-component-trigger="1"` (if interactive)?
+4. Is the invocation inside a markdown code block? Inline `` ` `` code and most fences suppress rendering — but a bare fence preceded by a blank line does **not** (a runtime bug, see [RUNTIME_INTERNALS.md](RUNTIME_INTERNALS.md#-inside-code-blocks--mostly-not-rendered-with-a-real-bug)). Add a language tag to fences you want treated as code.
+5. Do all `$Param$` placeholders in source match `<Param>` tags in AI output?
+6. Is VN mode off?
+7. Does the AI supplementary prompt exist and include a minimal invocation example? An empty `ai_prompt` means the AI is never told the component exists.
+8. **Styles missing or hover not working?** The component is in DSL mode — see [Execution modes](#execution-modes).
+9. **Script does nothing until clicked?** That is DSL mode behaviour. Move to `script.ts` for on-mount execution.
+10. **`ReferenceError: openUrl`?** `openUrl` is DSL-only; it does not exist in iframe mode.
 
 ---
 
@@ -125,6 +151,51 @@ The AI must output this exact tag structure for the system to render a component
 ```
 
 Inside source code, `$Param1$` placeholders receive values via literal string substitution.
+
+Details that matter:
+- Component name: 1–32 chars, `[A-Za-z0-9_-]` plus CJK U+4E00–U+9FA5. Parameter names may be up to 64 chars.
+- An omitted parameter substitutes to an **empty string**, never the literal `$Param$`.
+- Duplicate parameter tags: the **last** one wins.
+- Values are **HTML-escaped** when substituted into `markup.html`, but inserted **raw** into `styles.css` and the script. A value containing a quote will break an inline script literal — park such values in a hidden element and read them from the DOM instead.
+
+#### Escaping a literal `$Name$`
+
+To emit component-tag syntax from your own code (e.g. calling `changeMsg` to
+re-invoke yourself), escape both `$` with a backslash:
+
+```js
+changeMsg('<\$MyPanel\$><title>Hi</title></\$MyPanel\$>')
+```
+
+The runtime strips the escapes and leaves a literal `$`. Works in HTML, CSS and
+script. `String.fromCharCode(36)` is an equally valid, noisier alternative that
+some creators prefer.
+
+### Execution modes
+
+The runtime picks one of two modes per render. **This is not purely script-driven** — markup and CSS trigger it too.
+
+| | DSL mode (inline) | iframe mode (sandboxed) |
+|---|---|---|
+| CSS | **Flattened to inline `style` attributes**; first 1000 chars only; no `@`-rules, no `:hover`, no `::before` | A real `<style>` sheet — everything works |
+| HTML | Sanitized (DOMPurify tag/attr allowlist) | Injected as-is; CSP contains it |
+| Script runs | **On click** (the whole component is the click target) | **On mount** |
+| Bridge fns | All 26, synchronous | All except `openUrl`; storage/world-info/progress/wait are async |
+
+**You get iframe mode when any of these is true:**
+
+1. The script matches the advanced-JS detector — `const let var function if for while return`, `=>`, `document.`, `window.`, `setInterval(`, `setTimeout(`, `requestAnimationFrame(`, `new Date(`.
+2. The script is not pure DSL: any line among the first 32 that isn't `whitelistedName(args)`. (Length alone does not trigger this — validation slices to 32 statements first, so a longer all-whitelisted script still lands in DSL mode with its tail unvalidated.)
+3. *(no script)* The HTML contains `<html`, `<head` or `<body`.
+4. *(no script)* **The CSS exceeds 1000 characters.**
+5. *(no script)* The CSS contains `@media`, `@supports`, `@keyframes`, `@font-face`, `@layer`, `@container` or `@property`.
+6. *(no script)* The CSS targets `html`, `body` or `:root`.
+
+Compiled `script.ts` always matches (1). For a **static** component that needs
+real CSS, deliberately trip (4) or (5) — an `@media` block is enough.
+
+⚠️ A component with a *pure-DSL script* and >1000 chars of CSS stays in DSL mode
+and **silently loses the CSS tail**. The build warns about this.
 
 ### Source code structure
 
@@ -155,11 +226,22 @@ setText('[data-result]', '$Content$')
 show('[data-result]')
 ```
 
-Components render at the **chat bubble's width with content-driven height** — design fluid (`width:100%` + `max-width` ~320–360px), avoid fixed px widths and horizontal overflow (the runtime scales over-wide components down), and don't assume a fixed height or aspect ratio. See [RUNTIME_INTERNALS.md → Rendering & sizing](RUNTIME_INTERNALS.md#6-rendering--sizing-fluid-width-content-height-auto-downscale) and the `frontend-design` skill's component constraints. Never use `fetch`, real auth, real payment, or networking — the iframe CSP blocks network anyway.
+Always wrap everything in **one outer element** — the auto-downscale logic
+measures `root.firstElementChild`, so a bare list of siblings measures wrong.
+
+Components render at the **chat bubble's width with content-driven height** — design fluid (`width:100%` + `max-width` ~320–360px), avoid fixed px widths and horizontal overflow (the runtime scales over-wide components down), and don't assume a fixed height or aspect ratio. See [RUNTIME_INTERNALS.md → Rendering & sizing](RUNTIME_INTERNALS.md#9-rendering--sizing-fluid-width-content-height-auto-downscale) and the `frontend-design` skill's component constraints. Never use `fetch`, real auth, real payment, or networking — the iframe CSP blocks network anyway.
+
+#### HTML that gets stripped (DSL mode)
+
+The DSL path runs DOMPurify. **Not allowed:** `canvas`, `form`, `main`, `header`,
+`footer`, `nav`, `article`, `aside`, `dialog`, `iframe`, `style`, `script`,
+`template`, `object`, `embed`, `math`. Use `div`/`section` instead. `svg` and its
+basic shapes *are* allowed. Inline `on*` handlers are always stripped — bind
+events from the script (which puts you in iframe mode anyway).
 
 ### AI supplementary prompt format
 
-Always include these four items. Max 1,000 chars. This content counts toward the storyline prompt budget.
+Always include these four items. Max 1,000 chars. This content counts toward the storyline prompt budget, and a component with an **empty** `ai_prompt` is never mentioned to the AI at all.
 
 1. **When** to use the component.
 2. The **component name**.
@@ -178,13 +260,17 @@ Output format:
 Do not omit the outer tags. Parameter names must match exactly.
 ```
 
+The platform wraps these into a `[组件使用说明]` block listing every component and
+its call shape, then appends your text per component — so you do not need to
+re-explain the `<$…$>` syntax, only *when* and *with what*.
+
 ### Bridge function DSL
 
 Prefer bridge functions over raw JS. One call per line. All selectors scoped to the current component. Use `@host` for the component root.
 
-If raw JS is detected (`const`, `function`, `if`, `for`, `document.`, `window.`), the component switches to an isolated iframe.
+Selectors resolve with `querySelector` — **a single element, never a list** — and are ignored past 200 characters.
 
-> **In iframe mode (compiled `script.ts`), `saveToLocal` / `readFromLocal` / `getWorldInfo` are async (return Promises) — `await` them.** This and other reverse-engineered runtime behavior (cached avatar getters, the broader advanced-JS detector, the iframe CSP) are documented in [RUNTIME_INTERNALS.md](RUNTIME_INTERNALS.md). That file is unofficial and may be stale — verify before relying on it.
+> **In iframe mode (compiled `script.ts`), `saveToLocal` / `readFromLocal` / `getWorldInfo` / `progress` / `wait` return Promises — `await` them**, and `requireInputEquals` returns a boolean rather than halting. `openUrl` does not exist there at all. See [RUNTIME_INTERNALS.md](RUNTIME_INTERNALS.md#5-iframe-mode-bridge-semantics-differs-from-the-guide).
 
 #### Safe defaults
 
@@ -199,24 +285,30 @@ show(selector, display?)             — display element (default block)
 hide(selector)                       — hide element
 addClass(selector, className)        — add CSS class
 removeClass(selector, className)     — remove CSS class
-setStyle(selector, prop, value)      — set one allow-listed (safe) CSS property
+setStyle(selector, prop, value)      — set one sanitized CSS property (custom properties `--x` included)
 ```
 
-**Media & avatars**: to set an image/media source, use `setValue` — not
-`setStyle`. `src` is an element attribute, not a CSS property:
+**Media & avatars**: to set an image/media source, use `setValue`:
 
 ```
-setValue('#avatar-img', getCharAvatar() || getUserAvatar())   // correct
-setStyle('#avatar-img', 'src', url)                           // wrong
+setValue('#avatar-img', getCharAvatar() || getUserAvatar())
 ```
+
+`setStyle(sel, 'src', url)` is now special-cased to do the same thing, but
+`setValue` remains the documented and clearer path.
+
+**Theming from a param**: `setStyle` accepts CSS custom properties, so
+`setStyle('@host', '--accent', '$Color$')` re-themes a whole component in one
+call.
 
 #### Flow control
 
 ```
-progress(barSel, textSel, durationMs) — animate progress bar + sync % text
+progress(barSel, textSel, durationMs) — animate progress bar + sync % text (200–10000ms)
 wait(ms)                              — pause (max 10000)
 requireInputEquals(sel, expected, errMsg, trim?)
-    — validate input; toast error + halt on mismatch; trim defaults true
+    — validate input; toast error on mismatch; trim defaults true
+    — DSL mode: halts the remaining calls. iframe mode: returns false, halts nothing.
 ```
 
 #### Chat / host bridge
@@ -229,13 +321,13 @@ appendMsg(text)                — append to assistant message (persisted)
 changeMsg(text)                — replace assistant message (persisted)
 tempAppendMsg(text)            — append (local only, not persisted)
 tempChangeMsg(text)            — replace (local only, not persisted)
-getMsgContent()                — returns current message text (use as arg)
+getMsgContent()                — returns current message text (cached; use as arg)
 getCharAvatar()                — current storyline character avatar URL (use as arg)
 getUserAvatar()                — current logged-in user avatar URL (use as arg)
-getWorldInfo(trigger)          — enabled world-book entries matching trigger; returns array (use as arg)
-openUrl(url)                   — http/https only
-saveToLocal(key, value)        — IndexedDB; key max 128 chars
-readFromLocal(key)             — returns stored value (use as arg)
+getWorldInfo(trigger)          — enabled world-book entries matching trigger; array (async in iframe mode)
+openUrl(url)                   — http/https only — DSL MODE ONLY, undefined in iframe mode
+saveToLocal(key, value)        — IndexedDB, THIS device+browser only; key max 128 chars (async in iframe mode)
+readFromLocal(key)             — returns stored value, same device-local scope (async in iframe mode)
 ```
 
 Getter functions (`getMsgContent`, `getCharAvatar`, `getUserAvatar`,
@@ -243,41 +335,63 @@ Getter functions (`getMsgContent`, `getCharAvatar`, `getUserAvatar`,
 other functions, not used on their own. Notes:
 - Avatar values may be an `http`/`https` URL, a site-relative path, `blob:`, or
   `data:`. A `data:` URL renders offline inside the iframe; a remote URL only
-  works if the browser can reach it.
+  works if the browser can reach it. Avatars are pre-seeded into the iframe, so
+  they are correct on the first synchronous call.
+- **`getMsgContent()` returns `''` on a top-level call in iframe mode.** It is
+  synchronous but cached, and the cache starts empty (unlike the avatars, which
+  are pre-seeded). Calling it fires a host request whose reply lands later, so
+  reading it at the top of your script gets nothing — every time, not just the
+  first. Defer the read (`getMsgContent(); setTimeout(() => { … }, 60)`) or take
+  the value from a `$param$` instead. This silently breaks the popular
+  "read my own invocation back out of the message" pattern — see
+  [RUNTIME_INTERNALS.md](RUNTIME_INTERNALS.md#the-cached-getters-are-not-equally-reliable).
 - `getWorldInfo` returns an **array** of matched, enabled world-book entries.
   When passed to a text function (`setText`, `setValue`, `fillInput`,
   `appendMsg`, `changeMsg`) the array is auto-joined by newlines.
+- Host requests time out after 3 s and **resolve to `''`** — a failure is
+  indistinguishable from empty data.
+
+### Persisting state
+
+Two options, and they are not equivalent:
+
+- **`saveToLocal` / `readFromLocal`** — IndexedDB, scoped to *this device and
+  browser*. Async in iframe mode. Lost on another device, and invisible to the AI.
+- **`changeMsg` re-invoking your own component** — the message text becomes the
+  store, so state survives reloads, follows the conversation, and is visible to
+  the model. This is how switchable/multi-state components are built; see
+  [EXAMPLES.md](EXAMPLES.md#3-self-switching-message-openning). Remember to
+  escape the `$` (above) and to re-emit the component call, or the widget
+  vanishes after the first click.
+
+Two components can also hand off to each other by having each `changeMsg` a call
+to the other, carrying state in the parameter tags — see
+[EXAMPLES.md](EXAMPLES.md#4-two-component-state-machine-cyberpanelalpha--cyberpanelbeta).
 
 ### Component editor fields
 
 | Field | Purpose | Limit |
 |---|---|---|
-| Component name | The `<$...$>` tag the AI writes | 32 chars; `[a-zA-Z0-9_\-\u4e00-\u9fff]` only; unique per storyline |
+| Component name | The `<$...$>` tag the AI writes | 32 chars; `[a-zA-Z0-9_\-一-龥]` only; unique per storyline |
+| Alias | Component-market display name only; AI still calls the real name | 64 chars |
+| Tags | Component-market categorisation | 8 tags, 20 chars each |
 | Description | Creator's notes | 120 chars |
-| Source code | HTML + `<style>` + `<script>` in one block | 20,000 chars |
+| Source code | HTML + `<style>` + `<script>` in one block, or a full HTML document | 20,000 chars |
 | AI supplementary prompt | Tells the AI when/how to invoke | 1,000 chars |
 
 ### Platform limits
 
-- 30 components per storyline
+- 30 components per storyline (site-configurable default)
 - 20,000 chars per component (HTML + CSS + script combined)
 - Component name: 32 chars max
 - Description: 120 chars max
 - AI supplementary prompt: 1,000 chars max (counts toward storyline total)
-- `openUrl`: `http`/`https` only
+- DSL mode: 1,000 chars of CSS max; only the first 32 **statements** are validated (not the first 32 bridge calls — a non-bridge line among them is exactly what fails validation). Keep scripts under 32 statements; past that is unspecified.
+- `openUrl`: `http`/`https` only, DSL mode only
 - No real networking, auth, payment, or backend operations
 - VN mode: components disabled
 
-### Complete example
+### Complete examples
 
-For a full working example (password gate with params, AI prompt, and a bridge-function script), see [EXAMPLE_PASSWORD_GATE.md](EXAMPLE_PASSWORD_GATE.md). It shows the `src/` files and the resulting `component.json`:
-
-```
-src/
-├── markup.html
-├── styles.css
-├── script.js
-├── ai_prompt.md
-└── meta.json
-component.json   # build output
-```
+- [EXAMPLE_PASSWORD_GATE.md](EXAMPLE_PASSWORD_GATE.md) — one component end to end: `src/` files, AI prompt, bridge-function script, and the resulting `component.json`.
+- [EXAMPLES.md](EXAMPLES.md) — four annotated components from the field, covering media, randomisers, self-switching messages, and two-component state machines.
