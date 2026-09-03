@@ -33,4 +33,5 @@ component.json     # build output (generated, gitignored) — import into Worksh
 - When the user provides existing component code, split it into the `src/` files before making changes.
 - Keep styles chat-bubble-friendly. No networking, no external fonts, no real auth, no real payment.
 - Run `npm run build` after changes, confirm it passes validation, and address the warnings it prints — they flag silently-broken output, not style nits.
+- Use `npm run preview` to render `src/` locally through the real (vendored) runtime in a mock chat bubble — it shows the resolved mode, CSS truncation, auto-downscale at narrow widths, and a live host bridge. `vendor/` holds third-party code and is **not** covered by this repo's MIT license; see `vendor/README.md`.
 - CI: pushing to `main` runs `.github/workflows/build.yml`, which rebuilds and commits `component.json` back to `main`; pull requests validate the build only. Do not hand-commit `component.json`.

@@ -19,9 +19,10 @@
 ## 快速开始
 
 ```bash
-npm install        # 安装 esbuild 与 typescript
+npm install        # 安装 esbuild、typescript 与 dompurify
 # 编辑 src/ 下的文件（从 info-card 脚手架开始）
 npm run build      # 生成 ./component.json
+npm run preview    # 本地预览：http://localhost:5173
 ```
 
 `component.json` **由构建生成，且被 gitignore 忽略** —— 全新克隆中不存在，只有运行
@@ -42,10 +43,33 @@ npm run build      # 生成 ./component.json
 │   ├── ai_prompt.md     # AI 附加提示词        -> component.ai_prompt
 │   └── meta.json        # { "name", "description" }
 ├── component.json       # 构建产物（生成、被忽略）—— 导入此文件到 Workshop
-├── scripts/build.mjs    # 构建脚本
+├── scripts/
+│   ├── build.mjs        # 构建脚本
+│   ├── preview.mjs      # 本地预览服务器
+│   └── vendor-runtime.mjs # 拉取 / 校验被冻结的官方运行时
+├── tools/preview/       # 预览工具前端（模拟聊天气泡 + 宿主桥接）
+├── vendor/              # 冻结的官方组件运行时（第三方代码，非 MIT）
 ├── types/bridge.d.ts    # 桥接函数的环境类型声明
 └── .agents/skills/      # 创作技能（流程 + 设计 + 参考）
 ```
+
+## 本地预览
+
+```bash
+npm run preview                     # http://localhost:5173
+npm run preview -- --open --port 5199
+```
+
+用**真实的官方运行时**（冻结在 `vendor/`）把 `src/` 渲染到模拟聊天气泡里，
+修改 `src/` 会自动刷新。它会告诉你：
+
+- 当前落在哪种渲染模式、为什么；
+- CSS 是否被 1000 字符上限静默截断、`:hover`/`@keyframes` 是否根本没生效；
+- 切到 320px 时组件是否被 `autoScaleRoot()` 整体缩小；
+- 哪些标签被消毒器删掉；
+- `changeMsg` 的自我重调用是否真的能来回切换（Workshop 自带预览做不到这点）。
+
+详见 [`tools/preview/README.md`](tools/preview/README.md)。
 
 `markup.html`/`styles.css`/`script.*` 中的 `$参数名$` 占位符，会在调用时由 AI 通过
 `<$name$><参数名>值</参数名></$name$>` 填入。
@@ -135,3 +159,9 @@ npm run build      # 生成 ./component.json
 ## 许可证
 
 本项目以 [MIT 许可证](LICENSE) 发布，允许在保留许可声明的前提下用于开源或私有产品。
+
+**例外：[`vendor/`](vendor/) 目录不适用 MIT 许可证。** 其中的
+`storyComponents.js` 是从 Fuderation 公开 Web 客户端原样取回的专有代码，版权归其所有者，
+仅为让本地预览与线上行为完全一致而收录。若你要 fork、再分发或公开发布本仓库，
+请先阅读 [`vendor/README.md`](vendor/README.md)；必要时删除该目录，改用
+`npm run vendor:runtime -- --update` 在本地按需拉取。

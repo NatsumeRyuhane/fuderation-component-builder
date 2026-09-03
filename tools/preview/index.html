@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Component preview</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="dot"></span>
+    <strong>Fuderation component preview</strong>
+  </div>
+  <div class="meta" data-meta>loading…</div>
+</header>
+
+<main class="layout">
+
+  <section class="pane pane-chat">
+    <h2>Chat bubble</h2>
+
+    <div class="widths">
+      <span class="label">Bubble width</span>
+      <button type="button" data-width="320">320 <em>phone</em></button>
+      <button type="button" data-width="360" class="active">360 <em>default</em></button>
+      <button type="button" data-width="480">480 <em>tablet</em></button>
+      <button type="button" data-width="680">680 <em>desktop</em></button>
+      <span class="width-label" data-width-label>360px</span>
+    </div>
+
+    <div class="chat">
+      <div class="chat-row">
+        <div class="chat-avatar" aria-hidden="true"></div>
+        <div class="bubble" data-bubble style="width:360px"></div>
+      </div>
+    </div>
+
+    <label class="field">
+      <span>Chat input <em>(fillInput writes here)</em></span>
+      <input type="text" data-chat-input placeholder="the component can type into this box">
+    </label>
+  </section>
+
+  <section class="pane pane-side">
+    <h2>Message source</h2>
+    <p class="hint">
+      This is the raw assistant message the runtime parses. Edit it to change
+      parameters, add surrounding prose, or invoke the component twice.
+      <code>changeMsg</code> rewrites this box for real.
+    </p>
+    <textarea data-message spellcheck="false" rows="10"></textarea>
+
+    <h2>Render mode</h2>
+    <div class="mode" data-mode>…</div>
+    <ul class="warnings" data-warnings></ul>
+
+    <h2>Injected system prompt</h2>
+    <p class="hint">What the storyline actually tells the model about this component.</p>
+    <pre class="prompt" data-prompt></pre>
+
+    <h2>
+      Host activity
+      <button type="button" class="mini" data-clear-log>clear</button>
+      <button type="button" class="mini" data-reset-storage>reset storage</button>
+    </h2>
+    <div class="log" data-log></div>
+  </section>
+
+</main>
+
+<script type="module" src="/main.js"></script>
+</body>
+</html>

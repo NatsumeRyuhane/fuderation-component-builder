@@ -234,11 +234,37 @@ window.readFromLocal = function (variable) {
 So `setValue('[x]', readFromLocal('k'))` only works in DSL mode (the interpreter
 awaits it). In a compiled component you must `await readFromLocal('k')`.
 
-Avatars are **pre-seeded** into the iframe document at build time
-(`__storyComponentUserAvatar` / `__storyComponentCharAvatar`), so they are
-reliable on the first synchronous call. `getMsgContent()` is seeded to `''` and
-filled by the host's reply, so its first call can be empty — though in practice
-the host answers before user interaction.
+### The cached getters are not equally reliable
+
+Avatars are **pre-seeded** into the iframe document at build time, so they are
+correct on the first synchronous call. **Message content is not:**
+
+```js
+window.__storyComponentMsgContent = ''                       // hardcoded
+window.__storyComponentUserAvatar = ${JSON.stringify(c)}     // real value
+window.__storyComponentCharAvatar = ${JSON.stringify(i)}     // real value
+```
+
+`getMsgContent()` posts a request to the host and *synchronously returns that
+cached empty string*; the reply arrives later and only updates the cache. So a
+top-level `const raw = getMsgContent()` **always reads `''`**, on every mount —
+not just the first. Confirmed by running the shipped runtime under
+`npm run preview`.
+
+This silently breaks the common "read my own invocation back out of the message"
+pattern (see [EXAMPLES.md](EXAMPLES.md#4-two-component-state-machine-cyberpanelalphabeta),
+where it makes a shipped component pair drop its state entirely). Either defer
+the read:
+
+```js
+getMsgContent();                          // fire the request
+setTimeout(() => {
+  const raw = getMsgContent() || '';      // now populated
+}, 60);
+```
+
+…or avoid the round-trip altogether by taking state from `$param$` placeholders,
+which are substituted before the document is built.
 
 ### Selector and value rules (both modes)
 

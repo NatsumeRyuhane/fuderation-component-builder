@@ -13,6 +13,7 @@ Common uses: info cards, task panels, mock login screens, progress bars, copy-to
 
 | File | Use it for |
 |---|---|
+| `npm run preview` | **Render `src/` locally through the real runtime** in a mock chat bubble — shows the resolved mode, CSS truncation, auto-downscale, sanitizer stripping, and a working host bridge (`changeMsg` round-trips). See [tools/preview/README.md](../../../tools/preview/README.md). |
 | [reference/OFFICIAL_GUIDE_zh.md](reference/OFFICIAL_GUIDE_zh.md) | The official creator guide, verbatim (Chinese). Source of truth for intent. |
 | [RUNTIME_INTERNALS.md](RUNTIME_INTERNALS.md) | Reverse-engineered runtime behaviour: execution modes, sanitizer, sizing, async bridge. Source of truth for what actually happens. |
 | [EXAMPLES.md](EXAMPLES.md) | Four annotated real-world components (media card, dice, self-switching message, two-component state machine). |
@@ -96,7 +97,8 @@ scriptless component with small, plain CSS renders **inline, with its CSS
 flattened into inline style attributes**, which silently kills hover states and
 animation.
 
-After delivering, suggest the user import `component.json` into Workshop and run a **playtest**. Explain that preview alone is insufficient — the editor preview always uses an iframe, does not substitute `$param$` values, and does not prove the AI will invoke the component at all.
+Run `npm run preview` to see it rendered by the real runtime at several bubble
+widths before handing it over. Then suggest the user import `component.json` into Workshop and run a **playtest**. Local preview shows how it *renders*; only a playtest proves the AI will *invoke* it. Workshop's own editor preview proves neither — it always uses an iframe and never substitutes `$param$` values.
 
 ### Phase 3 — Add interactivity
 
@@ -335,9 +337,14 @@ other functions, not used on their own. Notes:
   `data:`. A `data:` URL renders offline inside the iframe; a remote URL only
   works if the browser can reach it. Avatars are pre-seeded into the iframe, so
   they are correct on the first synchronous call.
-- `getMsgContent()` is synchronous but **cached** — it returns the last known
-  value and refreshes in the background. Do not re-read it immediately after a
-  `changeMsg` and expect the new text.
+- **`getMsgContent()` returns `''` on a top-level call in iframe mode.** It is
+  synchronous but cached, and the cache starts empty (unlike the avatars, which
+  are pre-seeded). Calling it fires a host request whose reply lands later, so
+  reading it at the top of your script gets nothing — every time, not just the
+  first. Defer the read (`getMsgContent(); setTimeout(() => { … }, 60)`) or take
+  the value from a `$param$` instead. This silently breaks the popular
+  "read my own invocation back out of the message" pattern — see
+  [RUNTIME_INTERNALS.md](RUNTIME_INTERNALS.md#the-cached-getters-are-not-equally-reliable).
 - `getWorldInfo` returns an **array** of matched, enabled world-book entries.
   When passed to a text function (`setText`, `setValue`, `fillInput`,
   `appendMsg`, `changeMsg`) the array is auto-joined by newlines.

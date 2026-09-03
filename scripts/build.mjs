@@ -12,14 +12,17 @@
 //   src/meta.json     -> component.name / component.description
 //
 // Usage: node scripts/build.mjs [projectDir]   (default: cwd)
+//
+// Also importable: `assembleComponent()`, `validate()`, `analyseMode()` and
+// `LIMITS` are exported so the preview server (scripts/preview.mjs) builds the
+// component exactly the way this CLI does, from one source of truth.
 
 import { readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const PROJECT = path.resolve(process.argv[2] || process.cwd());
-const SRC = path.join(PROJECT, 'src');
-const OUT = path.join(PROJECT, 'component.json');
 
 // Platform limits from the Workshop component guide.
 const LIMITS = {
@@ -70,10 +73,16 @@ async function readIf(p) {
 // .ts -> compiled, minified IIFE (classic inline script, no ESM import/export).
 // Compiled output always trips the runtime's advanced-JS detector -> iframe mode.
 // .js -> verbatim, so simple `fn('a','b')` DSL scripts keep lightweight DSL mode.
-async function buildScript(esbuild) {
+async function buildScript(esbuild, SRC) {
   const tsPath = path.join(SRC, 'script.ts');
   const jsPath = path.join(SRC, 'script.js');
 
+  if (existsSync(tsPath) && existsSync(jsPath)) {
+    throw new Error(
+      'Both src/script.ts and src/script.js exist — use one or the other. ' +
+        '.ts compiles to iframe mode; .js stays verbatim in DSL mode.',
+    );
+  }
   if (existsSync(tsPath)) {
     if (!esbuild) {
       throw new Error('src/script.ts requires esbuild to compile. Run: npm install');
@@ -190,29 +199,47 @@ function analyseMode(component) {
   return { mode, reason, warnings };
 }
 
+// Read src/ and produce the component object. Does not validate or write.
+export async function assembleComponent(projectDir = PROJECT) {
+  const SRC = path.join(projectDir, 'src');
+  if (!existsSync(SRC)) throw new Error(`No src/ directory at ${SRC}.`);
+
+  const esbuild = await loadEsbuild();
+  const metaRaw = await readIf(path.join(SRC, 'meta.json'));
+  const meta = metaRaw ? JSON.parse(metaRaw) : {};
+
+  return {
+    name: meta.name || path.basename(projectDir),
+    html: (await readIf(path.join(SRC, 'markup.html'))).trim(),
+    css: (await readIf(path.join(SRC, 'styles.css'))).trim(),
+    script: await buildScript(esbuild, SRC),
+    source: '',
+    ai_prompt: (await readIf(path.join(SRC, 'ai_prompt.md'))).trim(),
+    description: meta.description || '',
+  };
+}
+
+export function toEnvelope(component) {
+  return {
+    type: 'fuderation_story_component',
+    version: 1,
+    exported_at: '',
+    creator: { username: '', display_id: 0 },
+    component,
+  };
+}
+
+export { validate, analyseMode, LIMITS };
+
 async function main() {
-  if (!existsSync(SRC)) {
-    console.error(`No src/ directory at ${SRC}.`);
-    process.exit(1);
-  }
+  const OUT = path.join(PROJECT, 'component.json');
 
   const esbuild = await loadEsbuild();
   if (!esbuild) {
     console.warn('! esbuild not installed — TypeScript sources cannot be compiled. Run: npm install\n');
   }
 
-  const metaRaw = await readIf(path.join(SRC, 'meta.json'));
-  const meta = metaRaw ? JSON.parse(metaRaw) : {};
-
-  const component = {
-    name: meta.name || path.basename(PROJECT),
-    html: (await readIf(path.join(SRC, 'markup.html'))).trim(),
-    css: (await readIf(path.join(SRC, 'styles.css'))).trim(),
-    script: await buildScript(esbuild),
-    source: '',
-    ai_prompt: (await readIf(path.join(SRC, 'ai_prompt.md'))).trim(),
-    description: meta.description || '',
-  };
+  const component = await assembleComponent(PROJECT);
 
   const errs = validate(component);
   if (errs.length) {
@@ -221,15 +248,7 @@ async function main() {
     process.exit(1);
   }
 
-  const envelope = {
-    type: 'fuderation_story_component',
-    version: 1,
-    exported_at: '',
-    creator: { username: '', display_id: 0 },
-    component,
-  };
-
-  await writeFile(OUT, JSON.stringify(envelope, null, 2) + '\n', 'utf8');
+  await writeFile(OUT, JSON.stringify(toEnvelope(component), null, 2) + '\n', 'utf8');
 
   const total = component.html.length + component.css.length + component.script.length;
   const { mode, reason, warnings } = analyseMode(component);
@@ -243,7 +262,10 @@ async function main() {
   for (const w of warnings) console.warn(`    ! ${w}`);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+// Only run the CLI when invoked directly, not when imported by the preview server.
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((err) => {
+    console.error(err.message || err);
+    process.exit(1);
+  });
+}

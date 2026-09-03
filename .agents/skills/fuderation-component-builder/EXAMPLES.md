@@ -253,10 +253,10 @@ document.getElementById('alphaSwitchBtn')!.addEventListener('click', () => {
 ### Techniques
 
 - **No `$param$` placeholders at all.** The scripts read the *raw message text*
-  with `getMsgContent()` and regex out `<title>` / `<subText>` themselves. This
-  works because after `changeMsg` the message body literally *is* the component
-  invocation, tags and all — so the same regex serves both the AI's first call
-  and every subsequent self-call.
+  with `getMsgContent()` and regex out `<title>` / `<subText>` themselves. The
+  *idea* is sound — after `changeMsg` the message body literally is the component
+  invocation, tags and all, so one regex serves both the AI's first call and
+  every self-call. The *execution* is broken; see the caveat below.
 - **State travels in the tags.** Each switch re-emits the current values, so the
   panel keeps its content across an unlimited number of flips.
 - **Scoped class names** (`.cyber-*-alpha` vs `.cyber-*-beta`) keep two sibling
@@ -267,10 +267,29 @@ document.getElementById('alphaSwitchBtn')!.addEventListener('click', () => {
 
 ### Caveats
 
-- `getMsgContent()` is **synchronous but cached** — it returns the last known
-  value and fires a background refresh. In an iframe it is seeded at mount, so
-  reading it at top level (as here) is reliable. Reading it again immediately
-  after a `changeMsg` is not.
+- **⚠️ This pair does not actually carry its state — the top-level
+  `getMsgContent()` always returns `''`.** In iframe mode the generated document
+  hardcodes `window.__storyComponentMsgContent = ''` (unlike the avatars, which
+  *are* seeded with real values). `getMsgContent()` posts a request to the host
+  and synchronously returns that cached empty string; the reply lands later. So
+  `var raw = getMsgContent()` at the top of the script reads `''` on **every**
+  mount, `extract()` finds nothing, and both panels always fall back to their
+  hardcoded defaults. The title/subText handed over in the tags is silently
+  dropped. Verified by running the real runtime under `npm run preview`.
+
+  The fix is to defer the read until after the host has answered:
+
+  ```js
+  getMsgContent();                    // fire the request
+  setTimeout(function () {
+    var raw = getMsgContent() || '';  // now populated
+    // …render from raw…
+  }, 60);
+  ```
+
+  Or, better for this particular job, take the state from `$param$`
+  placeholders instead — they are substituted into the HTML before the document
+  is ever built, so they need no round-trip at all.
 - `.cyber-*-container { max-width: 400px }` is wider than the ~320–360 px this
   repo recommends; on a narrow bubble it triggers the auto-downscale.
 - Both scripts run **on mount**, which is why the panel renders its title before

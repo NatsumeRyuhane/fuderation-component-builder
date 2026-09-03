@@ -7,9 +7,12 @@
   "description": "Workspace for building Fuderation Workshop components (src -> importable build JSON).",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "preview": "node scripts/preview.mjs",
+    "vendor:runtime": "node scripts/vendor-runtime.mjs"
   },
   "devDependencies": {
+    "dompurify": "^3.4.14",
     "esbuild": "^0.25.0",
     "typescript": "^5.7.0"
   }
