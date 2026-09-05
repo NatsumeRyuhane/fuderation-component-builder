@@ -37,6 +37,9 @@ jobs:
       - name: Type-check
         run: npm run typecheck
 
+      - name: Test
+        run: npm test
+
       - name: Build component.json
         run: npm run build
 
