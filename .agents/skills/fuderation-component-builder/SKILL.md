@@ -29,7 +29,7 @@ src/
 ├── markup.html      # HTML comments stripped -> component.html
 ├── styles.css       # CSS comments stripped  -> component.css
 ├── script.ts        # compiled + MINIFIED     -> component.script  (iframe mode)
-├── script.js        # OR JS comments stripped -> component.script  (DSL only if pure)
+├── script.js        # OR stripped + iframe locals renamed -> component.script (DSL only if pure)
 ├── ai_prompt.md     # AI supplementary prompt -> component.ai_prompt
 └── meta.json        # { "name", "description" }
 component.json       # BUILD OUTPUT (generated, gitignored) — import into Workshop
@@ -42,8 +42,12 @@ build validates the platform limits and warns about mode-related footguns.
 Import the JSON into Workshop: open the storyline → **Components** → import.
 
 `script.ts` is the **only** file the build fully minifies. HTML, CSS and
-`script.js` have comments stripped and outer whitespace trimmed, without
-rewriting strings, names, placeholders or other formatting. Necessary JS
+`script.js` have comments stripped and outer whitespace trimmed. Iframe
+`script.js` also shortens eligible local variables and parameters using Terser
+for scope analysis, then applies only verified identifier edits to the source.
+Top-level/public names, properties, shorthand bindings, function/class names,
+labels, private names, dollar-bearing identifiers, strings, placeholders and
+other formatting are preserved. Necessary JS
 line breaks/spaces and empty CSS/HTML comment separators are retained. The
 HTML pass leaves embedded JS/CSS alone; author those in their separate files.
 Character budgets and mode analysis use the processed output, also used by
@@ -51,6 +55,14 @@ the local preview. Syntax minification of DSL scripts remains forbidden:
 comma-merging adjacent bridge calls passes the runtime's DSL check but is
 mis-parsed. Use `(() => {})();` in `script.js` to explicitly select iframe
 mode; comment text or CSS length before stripping is not a stable trigger.
+
+Optional `src/meta.json` settings: `build.renameIdentifiers` (boolean, default
+`true`) and `build.reservedNames` (array of nonempty strings, default `[]`).
+They apply only to `script.js`, are shared by preview/build, and are not exported.
+Disable renaming when code relies on function-source reflection (`toString()`).
+The renamer keeps the source if the AST changes beyond identifiers, the output
+does not get shorter, or the detected mode would change. DSL scripts are never
+renamed; TypeScript's existing full minification path is unchanged.
 
 ### Importing preexisting component code
 
@@ -217,7 +229,7 @@ maps them onto the export's `html` / `css` / `script` fields:
 
 - `src/markup.html` → the markup, with `$Param$` placeholders
 - `src/styles.css` → the `<style>` contents
-- `src/script.js` (comments stripped, DSL only if pure) **or** `src/script.ts` (compiled, iframe mode) → the `<script>` contents
+- `src/script.js` (comments stripped, iframe locals renamed; DSL only if pure) **or** `src/script.ts` (compiled, iframe mode) → the `<script>` contents
 
 ```html
 <!-- src/markup.html -->

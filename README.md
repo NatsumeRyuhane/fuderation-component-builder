@@ -16,6 +16,7 @@
   - **dompurify / markdown-it** —— 仅供本地预览使用，与站点自身依赖一致。
   - **acorn / @csstools/css-tokenizer / parse5-sax-parser** —— 定位 JS / CSS / HTML
     注释，在不重新生成源码的前提下去除注释。
+  - **terser** —— 为 iframe JavaScript 的局部标识符选择短名称；构建仅把名称改动应用回原文。
 
 没有任何运行时依赖 —— 组件以纯 HTML/CSS/JS 形式交付。
 
@@ -42,13 +43,14 @@ npm run preview    # 本地预览：http://localhost:5173
 │   ├── markup.html      # 仅 HTML            -> component.html
 │   ├── styles.css       # 样式               -> component.css
 │   ├── script.ts        # 经 esbuild 编译     -> component.script   (必定 iframe 模式)
-│   ├── script.js        # 或仅去注释          -> component.script   (模式由内容决定)
+│   ├── script.js        # 去注释，iframe 局部变量改名 -> component.script (模式由内容决定)
 │   ├── ai_prompt.md     # AI 附加提示词        -> component.ai_prompt
 │   └── meta.json        # { "name", "description" }
 ├── component.json       # 构建产物（生成、被忽略）—— 导入此文件到 Workshop
 ├── scripts/
 │   ├── build.mjs        # 构建脚本
 │   ├── strip-comments.mjs # 保留源码写法的注释清理
+│   ├── rename-identifiers.mjs # 仅替换合适的局部标识符
 │   ├── preview.mjs      # 本地预览服务器
 │   └── vendor-runtime.mjs # 拉取 / 校验被冻结的官方运行时
 ├── tools/preview/       # 预览工具前端（模拟聊天气泡 + 宿主桥接）
@@ -90,8 +92,8 @@ npm run preview -- --open --port 5199
 
 `src/script.js` 与 `src/script.ts` **二选一**，不要同时存在。
 
-- **`script.js`（仅去注释，推荐用于简单组件）** —— 一行写一个桥接函数调用，例如
-  `setText('[data-out]', '$Text$')`。构建只去除注释，**不保证 DSL 模式**：只有当
+- **`script.js`（去注释，iframe 模式下还会缩短局部变量名）** —— DSL 脚本一行写一个桥接调用，例如
+  `setText('[data-out]', '$Text$')`。文件扩展名**不保证 DSL 模式**：只有当
   每条语句都是白名单桥接调用、且不含原生 JS 时，才会落在轻量的 **DSL 模式**；否则照样
   进 iframe。以 `npm run build` 打印的模式为准。
 - **`script.ts`（编译）** —— 由 esbuild 打包并压缩为内联 IIFE。任何编译产物都会运行在沙箱
@@ -103,19 +105,20 @@ npm run preview -- --open --port 5199
 
 ## 构建时压缩了什么
 
-**HTML、CSS 和 `script.js` 只去注释；`script.ts` 继续完整压缩。** 构建在清理后做
-首尾去空白（`.trim()`），不改动源文件。当前阶段不对 `script.js` 做变量改名或语法压缩。
+**HTML、CSS 和 DSL 脚本只去注释；iframe JavaScript 还会缩短合适的局部变量名；
+`script.ts` 继续完整压缩。** 构建在清理后做首尾去空白（`.trim()`），不改动源文件。
+`script.js` 不做语法压缩，也不合并桥接调用。
 
 | 源文件 | DSL 模式 | iframe 模式 |
 |---|---|---|
 | `src/markup.html` | 去 HTML 注释 + `.trim()` | 相同 |
 | `src/styles.css` | 去 CSS 注释 + `.trim()` | 相同 |
-| `src/script.js` | 去 JS 注释 + `.trim()`，保留逐条桥接调用 | 相同，不改变量名 |
+| `src/script.js` | 去 JS 注释 + `.trim()`，保留逐条桥接调用 | 去注释 + 缩短合适的局部变量/参数名，可关闭或保留指定名称 |
 | `src/script.ts` | 不适用 | esbuild 打包为 IIFE，去空白 + 精简语法 + 混淆标识符 |
 | `src/ai_prompt.md` | 仅 `.trim()`，不去注释 | 相同 |
 
 清理使用语言解析器定位注释后编辑原文，不重新输出整棵语法树。因此引号、中文、URL、
-正则表达式、`$参数$`、变量名和注释之外的缩进都保持原样。HTML 中的属性值、
+正则表达式、`$参数$` 和注释之外的缩进都保持原样；变量改名单独按下节规则处理。HTML 中的属性值、
 `textarea`、`script`、`style` 和 SVG CDATA 等内容不会被当成 HTML 注释删除；
 内嵌 JS/CSS 不在 HTML 清理范围内，请按仓库约定分别写入脚本和样式文件。
 
@@ -131,7 +134,36 @@ HTML 的 `&am<!--说明-->p;` 不能变成实体 `&amp;`，所以留下空的 `<
 
 去注释后，依赖注释内容或 CSS 原始长度触发的 iframe 模式可能回到 DSL。
 需要明确使用 iframe 时，在 `script.js` 中写 `(() => {})();` 即可；它不执行实际操作，
-但会命中原生 JS 检测，而且本阶段不会被优化掉。纯 DSL 脚本继续一行一个桥接调用。
+但会命中原生 JS 检测，而且不会被优化掉。纯 DSL 脚本继续一行一个桥接调用。
+
+### iframe JavaScript 的选择性改名
+
+`script.js` 去注释后若属于 iframe 模式，默认缩短局部变量和参数名。Terser 负责作用域、
+重名冲突和保留字检查；构建比较改名前后的 AST，只把标识符名称差异应用回原始源码，
+不使用 Terser 打印的脚本。因此引号、反斜杠、中文、模板字符串和语句格式保持原样。
+若 AST 还有其他变化、产物没有变短或模式改变，则保留去注释后的脚本。
+
+以下名称不会改动：顶层声明、外部全局量（包括桥接 API）、对象属性、对象简写中的绑定、
+函数/类名及直接推断名称的绑定、标签、私有属性，以及含 `$` 的标识符。生成的短名称
+只使用英文字母，不会引入新的 `$参数$`。直接 `eval` / `with` 可见的相关作用域交由
+Terser 保守处理。CSS 选择器、HTML ID 和字符串里的名称不会跟着改名。
+
+可在 `src/meta.json` 中配置：
+
+```json
+{
+  "name": "MyPanel",
+  "build": {
+    "renameIdentifiers": true,
+    "reservedNames": ["keepThisLocalName"]
+  }
+}
+```
+
+`renameIdentifiers` 默认 `true`，`reservedNames` 默认空数组；名称保留规则应用于所有作用域。
+设为 `false` 可让 `script.js` 只去注释。依赖函数 `toString()` 中的参数/变量拼写时，应关闭
+改名；改名不能保留函数源码反射结果。`build` 配置只用于本地构建，不写入组件导出，
+也不影响 `script.ts` 已有的完整压缩行为。本地预览使用相同设置。
 
 ### 为什么 `script.js` 不做语法压缩
 
@@ -155,8 +187,8 @@ setText("[data-name]","$Name$"),addClass("[data-card]","is-open");
 DSL 参数由运行时的字符串解析器读取，不是 JS 引擎，未必会还原转义——中文可能原样显示成
 转义序列。（该行为可用 `charset: 'utf8'` 规避。）
 
-当前 `script.js` 不经过 esbuild，只按解析器提供的位置去注释，所以不会合并桥接调用，
-也不会改写字符串转义。iframe JavaScript 的局部变量缩短可作为后续阶段；本阶段未启用。
+当前 `script.js` 不经过 esbuild。DSL 脚本只去注释；iframe 脚本另外按验证后的标识符位置
+替换局部变量名。因此不会合并桥接调用，也不会改写字符串转义。
 `script.ts` 的编译、打包和完整压缩路径保持不变。
 
 ## 自动构建（GitHub Actions）

@@ -9,6 +9,7 @@ npm run preview -- --open --port 5199
 界面语言为中文，配色与排版直接取自站点自己的样式表。修改 `src/` 会自动刷新。
 
 `src/` 预览与 `npm run build` 复用同一组装函数：HTML / CSS / `script.js` 会先去注释，
+iframe 模式的 `script.js` 还会按 `meta.json` 中的 `build` 设置缩短合适的局部变量名，
 `script.ts` 继续编译并完整压缩。因此显示的字符数和渲染模式基于处理后的产物。
 手动载入外部 `component.json` 时按文件内容预览，不额外进行构建清理。
 
