@@ -14,13 +14,15 @@
   - **typescript** —— 依据 `types/bridge.d.ts` 中的桥接函数声明，对
     `src/script.ts` 做类型检查。
   - **dompurify / markdown-it** —— 仅供本地预览使用，与站点自身依赖一致。
+  - **acorn / @csstools/css-tokenizer / parse5-sax-parser** —— 定位 JS / CSS / HTML
+    注释，在不重新生成源码的前提下去除注释。
 
 没有任何运行时依赖 —— 组件以纯 HTML/CSS/JS 形式交付。
 
 ## 快速开始
 
 ```bash
-npm install        # 安装 esbuild、typescript 与 dompurify
+npm install        # 安装构建与预览依赖
 # 编辑 src/ 下的文件（从 info-card 脚手架开始）
 npm run build      # 生成 ./component.json
 npm run preview    # 本地预览：http://localhost:5173
@@ -40,12 +42,13 @@ npm run preview    # 本地预览：http://localhost:5173
 │   ├── markup.html      # 仅 HTML            -> component.html
 │   ├── styles.css       # 样式               -> component.css
 │   ├── script.ts        # 经 esbuild 编译     -> component.script   (必定 iframe 模式)
-│   ├── script.js        # 或原样透传          -> component.script   (模式由内容决定)
+│   ├── script.js        # 或仅去注释          -> component.script   (模式由内容决定)
 │   ├── ai_prompt.md     # AI 附加提示词        -> component.ai_prompt
 │   └── meta.json        # { "name", "description" }
 ├── component.json       # 构建产物（生成、被忽略）—— 导入此文件到 Workshop
 ├── scripts/
 │   ├── build.mjs        # 构建脚本
+│   ├── strip-comments.mjs # 保留源码写法的注释清理
 │   ├── preview.mjs      # 本地预览服务器
 │   └── vendor-runtime.mjs # 拉取 / 校验被冻结的官方运行时
 ├── tools/preview/       # 预览工具前端（模拟聊天气泡 + 宿主桥接）
@@ -87,8 +90,8 @@ npm run preview -- --open --port 5199
 
 `src/script.js` 与 `src/script.ts` **二选一**，不要同时存在。
 
-- **`script.js`（原样透传，推荐用于简单组件）** —— 一行写一个桥接函数调用，例如
-  `setText('[data-out]', '$Text$')`。它会被原样透传，**但透传不等于 DSL 模式**：只有当
+- **`script.js`（仅去注释，推荐用于简单组件）** —— 一行写一个桥接函数调用，例如
+  `setText('[data-out]', '$Text$')`。构建只去除注释，**不保证 DSL 模式**：只有当
   每条语句都是白名单桥接调用、且不含原生 JS 时，才会落在轻量的 **DSL 模式**；否则照样
   进 iframe。以 `npm run build` 打印的模式为准。
 - **`script.ts`（编译）** —— 由 esbuild 打包并压缩为内联 IIFE。任何编译产物都会运行在沙箱
@@ -96,37 +99,47 @@ npm run preview -- --open --port 5199
   注入为全局函数，并在 `types/bridge.d.ts` 中做了环境声明。iframe 内禁止外部/CDN 脚本，
   也禁止任何联网。
 
-用 `npm run typecheck` 对 TypeScript 源码做类型检查。
+用 `npm run typecheck` 对 TypeScript 源码做类型检查，`npm test` 运行构建回归测试。
 
 ## 构建时压缩了什么
 
-**只有 `src/script.ts` 会被压缩。** 其余源文件全部原样写入 `component.json`，构建只做
-首尾去空白（`.trim()`），不删注释、不合并空格。
+**HTML、CSS 和 `script.js` 只去注释；`script.ts` 继续完整压缩。** 构建在清理后做
+首尾去空白（`.trim()`），不改动源文件。当前阶段不对 `script.js` 做变量改名或语法压缩。
 
-| 源文件 | 构建处理 | 是否压缩 |
+| 源文件 | DSL 模式 | iframe 模式 |
 |---|---|---|
-| `src/markup.html` | 仅 `.trim()` | **否** |
-| `src/styles.css` | 仅 `.trim()` | **否** |
-| `src/script.ts` | esbuild 打包为 IIFE（`minify: true`） | **是**（去空白 + 精简语法 + 混淆标识符） |
-| `src/script.js` | 仅 `.trim()`，原样透传 | **否**（有意为之，见下） |
-| `src/ai_prompt.md` | 仅 `.trim()` | 否 |
+| `src/markup.html` | 去 HTML 注释 + `.trim()` | 相同 |
+| `src/styles.css` | 去 CSS 注释 + `.trim()` | 相同 |
+| `src/script.js` | 去 JS 注释 + `.trim()`，保留逐条桥接调用 | 相同，不改变量名 |
+| `src/script.ts` | 不适用 | esbuild 打包为 IIFE，去空白 + 精简语法 + 混淆标识符 |
+| `src/ai_prompt.md` | 仅 `.trim()`，不去注释 | 相同 |
 
-由此有两个务必记住的后果：
+清理使用语言解析器定位注释后编辑原文，不重新输出整棵语法树。因此引号、中文、URL、
+正则表达式、`$参数$`、变量名和注释之外的缩进都保持原样。HTML 中的属性值、
+`textarea`、`script`、`style` 和 SVG CDATA 等内容不会被当成 HTML 注释删除；
+内嵌 JS/CSS 不在 HTML 清理范围内，请按仓库约定分别写入脚本和样式文件。
 
-1. **所有字符预算都按未压缩的源码计算** —— 合计 20000 字符的上限、以及 DSL 模式那
-   1000 字符的 CSS 上限，统计的都是你写下的原文，注释和缩进照算。CSS 的 1000 字符上限
-   尤其容易踩：一份注释写得很足的样式表，可能光靠注释和空白就越界，然后被**静默截断**。
-   要压缩就自己在源码里压——构建不会替你做。
-2. **`script.ts` 里的局部变量名会被混淆**，因为 esbuild 输出的是打包后的 IIFE。桥接函数
-   是运行时注入的全局量，esbuild 无从重命名，所以 DSL 调用始终完好。
+必要的分隔符会保留：JS 块注释中的换行影响自动分号插入，不能删除；相邻 token 之间
+可能补一个空格。CSS 的 `1/*说明*/px` 不能合并成 `1px`，所以留下空的 `/**/`；
+HTML 的 `&am<!--说明-->p;` 不能变成实体 `&amp;`，所以留下空的 `<!---->`。
+只有会改变解析结果的边界才保留空注释，注释文字都会删除。无效 JS 会报告
+`src/script.js` 和解析位置，不会尝试用正则猜测哪些内容可以删。
 
-### 为什么 `script.js` 不压缩
+**字符预算和模式判定都以清理后的构建产物为准。** 20000 字符的总上限和 1000 字符
+的 DSL CSS 上限不再计入已删除的注释，但保留的空白及必要分隔符仍占预算。本地预览
+复用同一构建函数，因此 `src/` 预览与导出的 JSON 一致。
+
+去注释后，依赖注释内容或 CSS 原始长度触发的 iframe 模式可能回到 DSL。
+需要明确使用 iframe 时，在 `script.js` 中写 `(() => {})();` 即可；它不执行实际操作，
+但会命中原生 JS 检测，而且本阶段不会被优化掉。纯 DSL 脚本继续一行一个桥接调用。
+
+### 为什么 `script.js` 不做语法压缩
 
 不是漏了，是压了会坏。`minify: true` 会启用 esbuild 的 `minifySyntax`，把相邻的表达式
 语句用逗号合并：
 
 ```js
-// 源码：4 条独立语句
+// 源码：2 条独立语句
 setText('[data-name]', '$Name$');
 addClass('[data-card]', 'is-open');
 
@@ -142,20 +155,18 @@ setText("[data-name]","$Name$"),addClass("[data-card]","is-open");
 DSL 参数由运行时的字符串解析器读取，不是 JS 引擎，未必会还原转义——中文可能原样显示成
 转义序列。（该行为可用 `charset: 'utf8'` 规避。）
 
-只做 `minifyWhitespace` 是安全的（分号保留，逐条语句仍匹配 DSL 文法），但**没有意义**：
-纯 DSL 脚本里没有任何声明，因此没有标识符可混淆，能省的只有注释和换行——在 20000 字符
-的预算面前可以忽略。反过来说，如果一个 `.js` 文件复杂到值得压缩，它必然含有
-`const`/`function`/`=>`，那就会命中原生 JS 检测直接进 iframe 模式——这种代码本来就该写成
-`script.ts`，而那条路径**是**压缩的。
+当前 `script.js` 不经过 esbuild，只按解析器提供的位置去注释，所以不会合并桥接调用，
+也不会改写字符串转义。iframe JavaScript 的局部变量缩短可作为后续阶段；本阶段未启用。
+`script.ts` 的编译、打包和完整压缩路径保持不变。
 
 ## 自动构建（GitHub Actions）
 
 仓库内置工作流 [`.github/workflows/build.yml`](.github/workflows/build.yml)：
 
-- **推送到 `main`** 时，CI 会执行 `npm ci`、类型检查、`npm run build`，然后把更新后的
+- **推送到 `main`** 时，CI 会执行 `npm ci`、类型检查、`npm test`、`npm run build`，然后把更新后的
   `component.json` 自动提交回 `main`（提交信息带 `[skip ci]`，并通过 `paths-ignore`
   避免触发死循环）。
-- **Pull Request** 仅做校验（类型检查 + 构建），不提交。
+- **Pull Request** 仅做校验（类型检查 + 测试 + 构建），不提交。
 - 也可在 Actions 页面手动触发（`workflow_dispatch`）。
 
 也就是说：开发者本地无需提交 `component.json`，由 CI 在 `main` 上生成并提交这一份权威产物。
@@ -185,8 +196,9 @@ DSL 参数由运行时的字符串解析器读取，不是 JS 引擎，未必会
 5. *（无脚本时）* CSS 含 `@media`/`@supports`/`@keyframes`/`@font-face` 等 at-rule；
 6. *（无脚本时）* CSS 选中了 `html`/`body`/`:root`。
 
-编译产物（`script.ts`）必然命中第 1 条。若是**静态组件**又需要完整 CSS，
-可以故意用第 4 或第 5 条把它推进 iframe——加一个 `@media` 块就够了。
+编译产物（`script.ts`）必然命中第 1 条。需要完整 CSS 时，可以在 `script.js` 中加
+`(() => {})();` 明确使用 iframe；无脚本组件也可通过 `@media` 块触发。
+不要依赖注释文字或去注释前的 CSS 长度来维持 iframe。
 
 ⚠️ 「纯 DSL 脚本 + 超过 1000 字符的 CSS」会停留在 DSL 模式并**静默丢弃多余样式**，
 构建会就此告警。
@@ -197,9 +209,9 @@ DSL 参数由运行时的字符串解析器读取，不是 JS 引擎，未必会
 - `markup.html` 不可为空——导入端会丢弃没有 html 的组件。
 - `description` ≤ 120 字符；`ai_prompt` ≤ 1000 字符。
   `ai_prompt` 为空时，AI 根本不会被告知该组件的存在。
-- `html` + `css` + `script` 合计 ≤ 20000 字符。**按未压缩的源码计**——除 `script.ts`
-  外构建不做任何压缩，注释与缩进照算，详见[构建时压缩了什么](#构建时压缩了什么)。
-- DSL 模式额外限制：最多 1000 字符 CSS（同样是未压缩的原文）。桥接调用的 32 条是**校验窗口**而非上限——
+- `html` + `css` + `script` 合计 ≤ 20000 字符。**按处理后的构建产物计**，
+  详见[构建时压缩了什么](#构建时压缩了什么)。
+- DSL 模式额外限制：最多 1000 字符 CSS（去注释后）。桥接调用的 32 条是**校验窗口**而非上限——
   运行时只校验前 32 条语句，多出来的不校验也不保证执行，别依赖。
 - 禁止真实联网、真实登录、真实支付。**也不能加载外部字体**
   （iframe CSP 的 `font-src` 只允许 `data:`，Google Fonts 会静默失败）。

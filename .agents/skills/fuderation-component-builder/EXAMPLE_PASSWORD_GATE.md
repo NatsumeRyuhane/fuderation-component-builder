@@ -2,7 +2,7 @@
 
 A storyline gate: the AI shows a lock panel, the user types a code, a correct
 answer plays a progress bar and reveals a success message. The script uses only
-bridge functions, so it ships as `src/script.js` (verbatim → DSL mode).
+bridge functions, so it ships as `src/script.js` (comments stripped → DSL mode).
 
 This is the same `src/` layout the repo uses. Authored files below; `npm run
 build` assembles them into `component.json`.

@@ -26,10 +26,10 @@ the repo root; the build assembles a single importable `component.json`.
 
 ```text
 src/
-├── markup.html      # HTML only               -> component.html    (NOT minified)
-├── styles.css       # styles                  -> component.css     (NOT minified)
+├── markup.html      # HTML comments stripped -> component.html
+├── styles.css       # CSS comments stripped  -> component.css
 ├── script.ts        # compiled + MINIFIED     -> component.script  (iframe mode)
-├── script.js        # OR verbatim passthrough -> component.script  (DSL only if pure)
+├── script.js        # OR JS comments stripped -> component.script  (DSL only if pure)
 ├── ai_prompt.md     # AI supplementary prompt -> component.ai_prompt
 └── meta.json        # { "name", "description" }
 component.json       # BUILD OUTPUT (generated, gitignored) — import into Workshop
@@ -41,11 +41,16 @@ build validates the platform limits and warns about mode-related footguns.
 `component.json` is generated and gitignored — it does not exist until you build.
 Import the JSON into Workshop: open the storyline → **Components** → import.
 
-`script.ts` is the **only** file the build minifies. HTML, CSS and `script.js`
-are written out as authored, so the char budgets under **Platform limits** count
-your comments and indentation. `script.js` is left alone on purpose — minifying
-it comma-merges adjacent bridge calls into one statement that still passes the
-runtime's pure-DSL check and is then mis-parsed.
+`script.ts` is the **only** file the build fully minifies. HTML, CSS and
+`script.js` have comments stripped and outer whitespace trimmed, without
+rewriting strings, names, placeholders or other formatting. Necessary JS
+line breaks/spaces and empty CSS/HTML comment separators are retained. The
+HTML pass leaves embedded JS/CSS alone; author those in their separate files.
+Character budgets and mode analysis use the processed output, also used by
+the local preview. Syntax minification of DSL scripts remains forbidden:
+comma-merging adjacent bridge calls passes the runtime's DSL check but is
+mis-parsed. Use `(() => {})();` in `script.js` to explicitly select iframe
+mode; comment text or CSS length before stripping is not a stable trigger.
 
 ### Importing preexisting component code
 
@@ -110,7 +115,7 @@ widths before handing it over. Then suggest the user import `component.json` int
 
 Only after the static version renders correctly in playtest, add a script using bridge functions:
 
-- **`src/script.js`** — passed through verbatim. Write one bridge call per line, using only whitelisted names, to keep lightweight **DSL mode**. (Only the first 32 statements are validated; statements past that are neither checked nor guaranteed to run, so keep scripts under 32 calls.) Prefer this for simple components, using the [safe default set](#safe-defaults). Remember a DSL script is a **click handler** — it runs when the user clicks the component, not on render.
+- **`src/script.js`** — comments stripped without rewriting code. Write one bridge call per line, using only whitelisted names, to keep lightweight **DSL mode**. (Only the first 32 statements are validated; statements past that are neither checked nor guaranteed to run, so keep scripts under 32 calls.) Prefer this for simple components, using the [safe default set](#safe-defaults). Remember a DSL script is a **click handler** — it runs when the user clicks the component, not on render.
 - **`src/script.ts`** — compiled by esbuild to an inline IIFE (always **iframe mode**). Use for complex logic, event listeners, or anything that must run on mount. Treat bridge functions as ambient globals (declared in `types/bridge.d.ts`); never `import` them, and do not use `fetch`/networking.
 
 If the component has an input field, give the trigger button `data-component-trigger="1"` — it stops Enter inside the input from firing the global chat send.
@@ -198,7 +203,8 @@ The runtime picks one of two modes per render. **This is not purely script-drive
 6. *(no script)* The CSS targets `html`, `body` or `:root`.
 
 Compiled `script.ts` always matches (1). For a **static** component that needs
-real CSS, deliberately trip (4) or (5) — an `@media` block is enough.
+real CSS, an `@media` block is enough; alternatively, add `(() => {})();` in
+`script.js` to explicitly force iframe mode. CSS length here is after stripping.
 
 ⚠️ A component with a *pure-DSL script* and >1000 chars of CSS stays in DSL mode
 and **silently loses the CSS tail**. The build warns about this.
@@ -211,7 +217,7 @@ maps them onto the export's `html` / `css` / `script` fields:
 
 - `src/markup.html` → the markup, with `$Param$` placeholders
 - `src/styles.css` → the `<style>` contents
-- `src/script.js` (verbatim, DSL mode) **or** `src/script.ts` (compiled, iframe mode) → the `<script>` contents
+- `src/script.js` (comments stripped, DSL only if pure) **or** `src/script.ts` (compiled, iframe mode) → the `<script>` contents
 
 ```html
 <!-- src/markup.html -->
@@ -388,11 +394,11 @@ to the other, carrying state in the parameter tags — see
 ### Platform limits
 
 - 30 components per storyline (site-configurable default)
-- 20,000 chars per component (HTML + CSS + script combined) — counted on the **unminified** source; only `script.ts` is compressed by the build
+- 20,000 chars per component (HTML + CSS + script combined) — counted on **processed output** after comment stripping or TypeScript compilation
 - Component name: 32 chars max
 - Description: 120 chars max
 - AI supplementary prompt: 1,000 chars max (counts toward storyline total)
-- DSL mode: 1,000 chars of CSS max (unminified, comments included — the overflow is dropped silently); only the first 32 **statements** are validated (not the first 32 bridge calls — a non-bridge line among them is exactly what fails validation). Keep scripts under 32 statements; past that is unspecified.
+- DSL mode: 1,000 chars of CSS max (after comment stripping — the overflow is dropped silently); only the first 32 **statements** are validated (not the first 32 bridge calls — a non-bridge line among them is exactly what fails validation). Keep scripts under 32 statements; past that is unspecified.
 - `openUrl`: `http`/`https` only, DSL mode only
 - No real networking, auth, payment, or backend operations
 - VN mode: components disabled
