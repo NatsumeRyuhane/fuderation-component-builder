@@ -88,6 +88,10 @@ npm run preview -- --open --port 5199
 
 详见 [`tools/preview/README.md`](tools/preview/README.md)。
 
+技能目录内置三个自检组件：DSL 桥接断言、DSL 拒绝控制组、iframe 自动检查与视觉清单。
+运行 `npm run build:diagnostics` 生成可导入文件，`npm run test:diagnostics` 验证功能与故障检测。
+使用步骤见 [DIAGNOSTICS.md](.agents/skills/fuderation-component-builder/DIAGNOSTICS.md)。
+
 ## 编写脚本
 
 `src/script.js` 与 `src/script.ts` **二选一**，不要同时存在。

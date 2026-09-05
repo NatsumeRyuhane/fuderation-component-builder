@@ -18,6 +18,7 @@ Common uses: info cards, task panels, mock login screens, progress bars, copy-to
 | [RUNTIME_INTERNALS.md](RUNTIME_INTERNALS.md) | Reverse-engineered runtime behaviour: execution modes, sanitizer, sizing, async bridge. Source of truth for what actually happens. |
 | [EXAMPLES.md](EXAMPLES.md) | Four annotated real-world components (media card, dice, self-switching message, two-component state machine). |
 | [EXAMPLE_PASSWORD_GATE.md](EXAMPLE_PASSWORD_GATE.md) | One complete `src/` → `component.json` walkthrough. |
+| [DIAGNOSTICS.md](DIAGNOSTICS.md) | Build and run the skill's self-diagnostic DSL, negative-control, and iframe components; functional assertions and manual visual checklists for build/runtime changes. |
 
 ## Repository layout
 
