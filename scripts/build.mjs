@@ -7,14 +7,14 @@
 //   src/markup.html   -> component.html    (strip HTML comments, trim)
 //   src/styles.css    -> component.css     (strip CSS comments, trim)
 //   src/script.ts     -> component.script  (esbuild, minified; runs in iframe mode)
-//   src/script.js     -> component.script  (strip JS comments, trim; mode depends
-//                                            on contents, see analyseMode)
+//   src/script.js     -> component.script  (strip comments; rename iframe locals;
+//                                          mode depends on contents, see analyseMode)
 //   src/ai_prompt.md  -> component.ai_prompt
 //   src/meta.json     -> component.name / component.description
 //
-// Only script.ts receives full minification. Other code loses comments only;
-// strings, names and surrounding whitespace are preserved. Character budgets
-// and mode analysis use the processed output, including any required separators.
+// Only script.ts receives full minification. HTML/CSS/DSL scripts lose comments
+// only. Iframe JS also shortens eligible local names via verified source edits.
+// Character budgets and mode analysis use the processed output.
 //
 // Usage: node scripts/build.mjs [projectDir]   (default: cwd)
 //
@@ -27,6 +27,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripHtmlComments, stripCssComments, stripJavaScriptComments } from './strip-comments.mjs';
+import { renameJavaScriptIdentifiers, readRenameOptions } from './rename-identifiers.mjs';
 
 const PROJECT = path.resolve(process.argv[2] || process.cwd());
 
@@ -88,18 +89,21 @@ async function readIf(p) {
 // Only locals are mangled; bridge fns are injected globals esbuild cannot rename.
 //
 // .js -> comments removed without rewriting code, preserving DSL statements.
+// Iframe scripts can also shorten local identifiers; literals, public names,
+// syntax and formatting are retained. src/meta.json build settings can opt out
+// or reserve additional names. Renaming never changes the detected mode.
 // No syntax minification: esbuild's minifySyntax comma-merges adjacent
 // expression statements (`a();b();` -> `a(),b()`), and Se() still accepts that
 // single line as pure DSL (the name is whitelisted) before mis-parsing the whole
 // thing as one call — a silent wrong result, not an error.
-async function buildScript(esbuild, SRC) {
+async function buildScript(esbuild, SRC, renameOptions) {
   const tsPath = path.join(SRC, 'script.ts');
   const jsPath = path.join(SRC, 'script.js');
 
   if (existsSync(tsPath) && existsSync(jsPath)) {
     throw new Error(
       'Both src/script.ts and src/script.js exist — use one or the other. ' +
-        '.ts compiles to iframe mode; .js only has comments stripped.',
+        '.ts compiles to iframe mode; .js is processed without syntax compression.',
     );
   }
   if (existsSync(tsPath)) {
@@ -120,7 +124,12 @@ async function buildScript(esbuild, SRC) {
   }
   if (existsSync(jsPath)) {
     try {
-      return stripJavaScriptComments(await readFile(jsPath, 'utf8')).trim();
+      const script = stripJavaScriptComments(await readFile(jsPath, 'utf8')).trim();
+      const mode = analyseMode({ html: '', css: '', script }).mode;
+      if (!renameOptions.renameIdentifiers || mode === 'dsl') return script;
+      const renamed = await renameJavaScriptIdentifiers(script, renameOptions);
+      // Keep the runtime dispatch stable even if its text heuristics change.
+      return analyseMode({ html: '', css: '', script: renamed }).mode === mode ? renamed : script;
     } catch (error) {
       throw new Error(`src/script.js: ${error.message}`, { cause: error });
     }
@@ -248,12 +257,13 @@ export async function assembleComponent(projectDir = PROJECT) {
   const esbuild = await loadEsbuild();
   const metaRaw = await readIf(path.join(SRC, 'meta.json'));
   const meta = metaRaw ? JSON.parse(metaRaw) : {};
+  const renameOptions = readRenameOptions(meta.build);
 
   return {
     name: meta.name || path.basename(projectDir),
     html: (await stripHtmlComments(await readIf(path.join(SRC, 'markup.html')))).trim(),
     css: stripCssComments(await readIf(path.join(SRC, 'styles.css'))).trim(),
-    script: await buildScript(esbuild, SRC),
+    script: await buildScript(esbuild, SRC, renameOptions),
     source: '',
     ai_prompt: (await readIf(path.join(SRC, 'ai_prompt.md'))).trim(),
     description: meta.description || '',

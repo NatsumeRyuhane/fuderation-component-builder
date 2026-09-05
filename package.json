@@ -19,6 +19,7 @@
     "esbuild": "^0.25.0",
     "markdown-it": "^15.0.1",
     "parse5-sax-parser": "^7.0.0",
+    "terser": "^5.51.2",
     "typescript": "^5.7.0"
   }
 }
