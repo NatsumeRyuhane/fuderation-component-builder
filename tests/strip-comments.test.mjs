@@ -15,7 +15,7 @@ toast('欢迎 https://example.com/a/*b*/', 'success');
 changeMsg('<\$Panel\$><Text>Hi</Text></\$Panel\$>');`;
   const stripped = stripJavaScriptComments(code);
   assert.equal(stripped, String.raw`
-setText('[data-out]', '$Text$'); 
+setText('[data-out]', '$Text$');${' '}
 
 toast('欢迎 https://example.com/a/*b*/', 'success');
 changeMsg('<\$Panel\$><Text>Hi</Text></\$Panel\$>');`);
@@ -72,7 +72,7 @@ test('CSS removes comments without rewriting strings, URLs, selectors or placeho
 }`;
   assert.equal(stripCssComments(source), String.raw`
 .card.active {
-  color: $Color$; 
+  color: $Color$;${' '}
   content: "/* literal */ https://example.com";
   background: url(https://example.com/a/*literal*/b);
   --message: '/* literal */';
