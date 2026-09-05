@@ -1,0 +1,30 @@
+/* A full stylesheet is intentional: this component must stay in iframe mode. */
+.lab, .lab * { box-sizing:border-box; }
+.lab { width:100%; max-width:360px; padding:18px; border:1px solid #8b9d92; background:#f7f5ee; color:#193c36; font:14px/1.5 Georgia,serif; overflow-wrap:anywhere; }
+.lab h2 { font-size:27px; line-height:1.15; margin:10px 0; }
+.lab h3 { font-size:19px; margin:20px 0 8px; }
+.lab p { margin:8px 0; }
+.lab .eyebrow, .lab small { font:11px/1.5 ui-monospace,monospace; }
+.lab button { width:100%; min-height:42px; padding:8px; border:1px solid #193c36; background:#193c36; color:#fff; font:inherit; cursor:pointer; }
+.lab button:disabled { opacity:.6; cursor:wait; }
+.lab button:hover, .lab button:focus-visible { outline:3px solid #bc8b36; outline-offset:2px; }
+.lab [data-summary] { padding:10px 0; border-bottom:1px solid #8b9d92; font-weight:bold; }
+.lab .checks { margin:0; padding-left:22px; }
+.lab .checks li { padding:6px 0; border-bottom:1px dotted #c4cdc2; }
+.lab [data-state="pass"] { color:#17633c; }
+.lab [data-state="fail"] { color:#a31c24; font-weight:bold; }
+.lab .probes { padding:12px 0; }
+.lab input[readonly] { display:block; width:100%; min-height:36px; font:12px monospace; }
+.lab code { font:12px/1.5 ui-monospace,monospace; overflow-wrap:anywhere; }
+.lab [data-swatch] { padding:8px; }
+.lab .track { height:10px; margin-top:10px; background:#d8ded7; }
+.lab [data-bar] { height:100%; width:0%; background:#21744e; }
+.lab .visual { display:flex; gap:8px; align-items:flex-start; margin:12px 0; }
+.lab .visual input { flex:none; width:20px; height:20px; margin:1px 0; }
+.lab .swatches { display:flex; gap:5px; color:#fff; font:11px monospace; }
+.lab .swatches span { flex:1; padding:12px 4px; text-align:center; background:#193c36; }
+.lab .swatches span:nth-child(2) { background:#21744e; }
+.lab .swatches span:nth-child(3) { background:#906222; }
+.lab .checker { height:36px; margin-top:6px; border:1px solid #8b9d92; background:repeating-conic-gradient(#193c36 0% 25%,#f7f5ee 0% 50%) 0 0 / 12px 12px; }
+.lab .css-literal::after { content:"/* CSS literal */"; }
+@media (prefers-reduced-motion: reduce) { .lab * { scroll-behavior:auto; } }

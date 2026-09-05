@@ -1,0 +1,15 @@
+<!-- Negative controls must fail loudly if their guard does not halt. -->
+<div class="guard">
+  <small>COMPONENT LAB / 02 · DSL NEGATIVE CONTROL</small>
+  <h3>Prove the guard stops</h3>
+  <p>This test deliberately compares WRONG with EXPECTED. A rejection toast is the intended result.</p>
+  <input data-wrong readonly value="WRONG" aria-label="Intentional mismatching value" />
+  <button type="button" data-component-trigger="1">Run negative control</button>
+  <p data-guard-status role="status" aria-live="polite">NOT RUN</p>
+  <p data-forbidden>NOT REACHED</p>
+  <h4>Expected checklist</h4>
+  <p>□ Status changes from NOT RUN to ARMED.</p>
+  <p>□ A toast says EXPECTED diagnostic rejection.</p>
+  <p>□ NOT REACHED stays unchanged; no FAIL text appears.</p>
+  <small>All three observations are required. Pure DSL cannot execute a PASS update after a correct halt. The automated harness asserts the halt result and untouched sentinel. Reload before rerunning.</small>
+</div>

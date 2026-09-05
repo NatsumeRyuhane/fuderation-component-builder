@@ -1,0 +1,4 @@
+{
+  "name": "DiagnosticDSLGuard",
+  "description": "Negative DSL control: an intentional mismatch must halt before the FAIL sentinel."
+}

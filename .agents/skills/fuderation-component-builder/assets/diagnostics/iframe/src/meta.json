@@ -1,0 +1,4 @@
+{
+  "name": "DiagnosticIframe",
+  "description": "Independent iframe assertions for local-name renaming, DOM bridges, async storage and events."
+}

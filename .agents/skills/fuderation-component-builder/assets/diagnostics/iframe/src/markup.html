@@ -1,0 +1,43 @@
+<!-- This note should not be present in the build output. -->
+<div class="lab">
+  <div class="eyebrow">COMPONENT LAB / 03 · IFRAME</div>
+  <h2>Runtime field test</h2>
+  <p class="intro">Automatic assertions inspect real results. Visual observations have their own checklist.</p>
+  <button type="button" data-run>Rerun automatic checks</button>
+  <p data-summary role="status" aria-live="polite">NOT RUN · the script has not started.</p>
+  <ol class="checks">
+    <li data-check="bindings">PENDING · closures, shadowing and destructuring</li>
+    <li data-check="names">PENDING · public keys and function/class names</li>
+    <li data-check="literals">PENDING · Unicode, slashes and escaped tag literals</li>
+    <li data-check="values">PENDING · text and input bridges</li>
+    <li data-check="guard">PENDING · equality true and false results</li>
+    <li data-check="classes">PENDING · class add and remove</li>
+    <li data-check="styles">PENDING · visibility and style bridges</li>
+    <li data-check="storage">PENDING · awaited storage reset and round trip</li>
+    <li data-check="flow">PENDING · wait and progress completion</li>
+    <li data-check="events">PENDING · registered click handler</li>
+  </ol>
+  <div class="probes">
+    <label>Value readback <input data-value readonly value="UNSET" /></label>
+    <p data-text>UNSET</p>
+    <code data-literal>https://example.com/a/*literal*/ // 欢迎</code>
+    <p data-class class="remove-me">CLASS PROBE</p>
+    <p data-visible style="display:none">REVEALED · this line should be visible</p>
+    <p data-hidden>WARNING · this line should disappear</p>
+    <div data-swatch style="background-color:#bfdbfe">STYLE · blue becomes green</div>
+    <div class="track"><div data-bar></div></div>
+    <p data-percent>0%</p>
+    <button type="button" data-event>Click probe · also responds to a real click</button>
+    <p data-event-count>0 clicks observed</p>
+  </div>
+  <h3>Visual checklist</h3>
+  <p data-visual-summary>0 / 4 visual observations confirmed</p>
+  <label class="visual"><input type="checkbox" data-visual /> All three color swatches are distinct and the checker pattern is visible.</label>
+  <div class="swatches"><span>INK</span><span>GREEN</span><span>AMBER</span></div>
+  <div class="checker" aria-label="Alternating square checker pattern"></div>
+  <label class="visual"><input type="checkbox" data-visual /> The text below says /* CSS literal */ and the hover/focus outline appears on buttons.</label>
+  <code class="css-literal"></code>
+  <label class="visual"><input type="checkbox" data-visual /> At 320px and 480px, text wraps and the outer border is fully visible without shrinking the type.</label>
+  <label class="visual"><input type="checkbox" data-visual /> Tab reaches both buttons and all checkboxes; Space toggles a checkbox and Enter activates a button.</label>
+  <small>Automatic checks use only local probes and fcb.diagnostics.iframe.v1 storage. The guard check intentionally emits one rejection toast. Message editing, navigation and clipboard are not exercised.</small>
+</div>

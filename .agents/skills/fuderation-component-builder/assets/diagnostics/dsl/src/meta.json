@@ -1,0 +1,4 @@
+{
+  "name": "DiagnosticDSL",
+  "description": "Pure DSL assertions for values, text, classes, storage and progress, with visual probes."
+}
