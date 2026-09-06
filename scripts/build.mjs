@@ -116,6 +116,7 @@ async function buildScript(esbuild, SRC, renameOptions) {
       format: 'iife',
       target: 'es2017',
       minify: true,
+      charset: 'utf8', // Preserve dense Unicode payloads instead of six-char escapes.
       platform: 'browser',
       write: false,
       legalComments: 'none',

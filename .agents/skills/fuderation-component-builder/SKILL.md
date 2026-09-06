@@ -63,7 +63,19 @@ They apply only to `script.js`, are shared by preview/build, and are not exporte
 Disable renaming when code relies on function-source reflection (`toString()`).
 The renamer keeps the source if the AST changes beyond identifiers, the output
 does not get shorter, or the detected mode would change. DSL scripts are never
-renamed; TypeScript's existing full minification path is unchanged.
+renamed; TypeScript remains fully minified, with literal Unicode preserved by
+esbuild's `charset: 'utf8'`.
+
+### Packing large data payloads
+
+When the user wants lots of embedded data, or a data-heavy component approaches
+its character limit, try **Base32768** using the skill's
+[scripts/pack-data.mjs](scripts/pack-data.mjs) helper. Read
+[DATA_PACKING.md](DATA_PACKING.md) for generation, TypeScript integration, and
+verification. Use the upstream codec's safe BMP alphabet and padding rules;
+keep packing only when the final build is smaller after decoder overhead.
+This is for mechanically generated data in iframe components, not AI prompts
+or executable-source packing. Small plain literals usually need no encoding.
 
 ### Importing preexisting component code
 
