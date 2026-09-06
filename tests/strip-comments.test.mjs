@@ -3,6 +3,7 @@ import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import vm from 'node:vm';
+import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 import { stripHtmlComments, stripCssComments, stripJavaScriptComments } from '../scripts/strip-comments.mjs';
 import { assembleComponent, analyseMode, validate } from '../scripts/build.mjs';
@@ -94,6 +95,21 @@ test('CSS preserves whitespace, escapes and adjacent comment boundaries', () => 
   ]) assert.equal(stripCssComments(source), expected);
 });
 
+test('CSS fallback preserves interacting boundaries across multiple tokens', () => {
+  for (const [source, expected] of [
+    ['</* a */!/* b */-/* c */-', '<!-/**/-'],
+    ['1/* a */e/* b */+2', '1/**/e+2'],
+    ['u/* a */+/* b */1', 'u+/**/1'],
+    ['url/* a */(x)', 'url/**/(x)'],
+    ['--/* a */>', '--/**/>'],
+    ['a/* a */b/* b */c', 'a/**/b/**/c'],
+  ]) {
+    const stripped = stripCssComments(source);
+    assert.equal(stripped, expected);
+    assert.equal(stripCssComments(stripped), stripped);
+  }
+});
+
 test('HTML removes comments in documents and templates without reserializing markup', async () => {
   const source = '<!DOCTYPE html>\n<!-- header --><HTML><body>\n' +
     '<DIV data-note="<!-- literal -->">$Title$ &amp; 欢迎<!-- note -->!</DIV>\n' +
@@ -116,6 +132,42 @@ test('HTML comment removal does not form new entities or markup', async () => {
   const stripped = await stripHtmlComments(source);
   assert.equal(stripped, '<p>&am<!---->p; <<!---->b></p>');
   assert.equal(await stripHtmlComments(stripped), stripped);
+});
+
+test('HTML fallback handles adjacent comments, reference continuations and CRLF joins', async () => {
+  for (const [source, expected] of [
+    ['&am<!-- a --><!-- b -->p;', '&am<!---->p;'],
+    ['&<!-- a -->a<!-- b -->m<!-- c -->p;', '&am<!---->p;'],
+    ['<<!-- a -->/<!-- b -->b>', '<<!---->/b>'],
+    ['\r<!-- a -->\n', '\r<!---->\n'],
+    ['&not<!-- a -->in; &unknown<!-- safe -->;', '&not<!---->in; &unknown;'],
+    ['&<!-- a -->#<!-- b -->x<!-- c -->41;', '&#x<!---->41;'],
+    ['<svg>&am<!-- a -->p;</svg>', '<svg>&am<!---->p;</svg>'],
+    ['&#' + '0'.repeat(128) + '65<!-- a -->;', '&#' + '0'.repeat(128) + '65<!---->;'],
+    ['&#x' + '0'.repeat(128) + '41<!-- a -->F;', '&#x' + '0'.repeat(128) + '41<!---->F;'],
+  ]) {
+    const stripped = await stripHtmlComments(source);
+    assert.equal(stripped, expected);
+    assert.equal(await stripHtmlComments(stripped), stripped);
+  }
+});
+
+test('comment-heavy CSS and HTML complete with required separators preserved', () => {
+  // A subprocess deadline also interrupts synchronous tokenization. The former
+  // per-comment whole-source fallback takes tens of seconds on these inputs;
+  // bounded boundary checks leave ample room under this coarse regression guard.
+  const result = spawnSync(process.execPath, ['--input-type=module', '-e', `
+    import assert from 'node:assert/strict';
+    import { stripCssComments, stripHtmlComments } from ${JSON.stringify(new URL('../scripts/strip-comments.mjs', import.meta.url).href)};
+    const count = 12000;
+    const css = '.a{--x:1/* boundary */px;}' + '/* padding */\\n'.repeat(count);
+    const html = '<p>&am<!-- boundary -->p;</p>' + '<!-- padding -->\\n'.repeat(count);
+    assert.equal(stripCssComments(css), '.a{--x:1/**/px;}' + '\\n'.repeat(count));
+    assert.equal(await stripHtmlComments(html), '<p>&am<!---->p;</p>' + '\\n'.repeat(count));
+    assert.equal(stripCssComments('x'.repeat(10000) + '/* padding */'.repeat(count) + 'y'), 'x'.repeat(10000) + '/**/y');
+  `], { timeout: 10000, encoding: 'utf8' });
+  assert.ifError(result.error);
+  assert.equal(result.status, 0, result.stderr);
 });
 
 async function fixture(t, files) {

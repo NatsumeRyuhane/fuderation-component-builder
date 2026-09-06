@@ -41,8 +41,18 @@ function cssSignature(tokens) {
 
 export function stripCssComments(source) {
   const tokens = tokenize({ css: source });
-  const ranges = tokens.filter(([type]) => type === TokenType.Comment)
-    .map(([, , start, end]) => ({ start, end: end + 1 }));
+  // Collapse adjacent comments so a long neighboring token is inspected only
+  // once for the run, not once for every comment in it.
+  const units = [];
+  const ranges = [];
+  for (const token of tokens) {
+    if (token[0] !== TokenType.Comment) units.push(token);
+    else if (units.at(-1)?.[0] === TokenType.Comment) ranges.at(-1).end = token[3] + 1;
+    else {
+      ranges.push({ start: token[2], end: token[3] + 1, index: units.length });
+      units.push([TokenType.Comment, '/**/']);
+    }
+  }
   if (!ranges.length) return source;
 
   const expected = cssSignature(tokens);
@@ -54,12 +64,21 @@ export function stripCssComments(source) {
   // Rare fallback: e.g. `1/* note */px` must not become the dimension `1px`.
   // Whitespace is not an equivalent separator in CSS (it can be a combinator).
   // Keep only empty comments whose removal would change the token stream.
-  replacements.fill('/**/');
-  ranges.forEach((_, index) => {
-    replacements[index] = '';
-    if (!equivalent(replaceRanges(source, ranges, replacements))) replacements[index] = '/**/';
-  });
-  return replaceRanges(source, ranges, replacements);
+  // Token joins can involve four delimiter characters (e.g. <!--).
+  // Eight units cover four tokens even with intervening comment boundaries.
+  // Each complete token participates in at most 17 windows, bounding total
+  // tokenization work even for very long strings, identifiers and comments.
+  for (const [rangeIndex, { index }] of ranges.entries()) {
+    const window = units.slice(Math.max(0, index - 8), index + 9);
+    units[index][1] = '';
+    if (cssSignature(tokenize({ css: window.map((token) => token[1]).join('') })) !== cssSignature(window)) {
+      units[index][1] = replacements[rangeIndex] = '/**/';
+    }
+  }
+  const result = replaceRanges(source, ranges, replacements);
+  // A whole-source check covers malformed input/context beyond local windows.
+  // Conservatively retain empty separators if it fails, with no per-range retry.
+  return equivalent(result) ? result : replaceRanges(source, ranges, ranges.map(() => '/**/'));
 }
 
 async function inspectHtml(source) {
@@ -92,12 +111,42 @@ export async function stripHtmlComments(source) {
 
   // Removing comments must not create markup or character references:
   // `&am<!-- note -->p;` is literal text, whereas `&amp;` is an ampersand.
-  replacements.fill('<!---->');
+  let cursor = 0;
+  let tail = '';
   for (let index = 0; index < ranges.length; index++) {
-    replacements[index] = '';
-    if ((await inspectHtml(replaceRanges(source, ranges, replacements))).signature !== signature) {
+    const { start, end } = ranges[index];
+    tail += source.slice(cursor, start);
+    cursor = end;
+    // A following comment still supplies the boundary; decide at the last one.
+    if (ranges[index + 1]?.start === end) continue;
+    const nextStart = ranges[index + 1]?.start;
+    const rightEnd = Math.min(end + 64, nextStart ?? source.length);
+    // Include the next still-present boundary: a newly formed `</` can consume
+    // that comment as a bogus end tag before any following text is reached.
+    const right = source.slice(end, rightEnd) + (rightEnd === nextStart ? '<!---->' : '');
+    // Numeric references can be arbitrarily long. Any additional digit (or a
+    // semicolon after digits) would be consumed instead of remaining text.
+    const numeric = tail.match(/&#(x[\da-f]*|\d*)$/i)?.[1];
+    const hex = numeric?.[0]?.toLowerCase() === 'x';
+    const digits = numeric?.slice(hex ? 1 : 0);
+    let required = numeric !== undefined && (
+      (hex ? /^[\da-f]/i : /^\d/).test(right) || (digits.length > 0 && right.startsWith(';'))
+    );
+    // Named references are shorter than 64 characters. Only a trailing
+    // reference, tag opener or CR can interact with text across an HTML comment.
+    tail = tail.slice(-64);
+    const boundary = tail.match(/(?:&[\da-z#]*|<\/?|\r)$/i)?.[0];
+    if (!required && boundary) {
+      const before = await inspectHtml(boundary + '<!---->' + right);
+      const after = await inspectHtml(boundary + right);
+      required = before.signature !== after.signature;
+    }
+    if (required) {
       replacements[index] = '<!---->';
+      tail = '';
     }
   }
-  return replaceRanges(source, ranges, replacements);
+  const result = replaceRanges(source, ranges, replacements);
+  return (await inspectHtml(result)).signature === signature
+    ? result : replaceRanges(source, ranges, ranges.map(() => '<!---->'));
 }
