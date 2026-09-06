@@ -1,6 +1,7 @@
 // DOM assertions, not browser/layout verification. Render through the vendored
 // runtime; DSL execution uses the preview's documented reconstruction.
 import assert from 'node:assert/strict';
+import { TextDecoder } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { build } from 'esbuild';
@@ -25,6 +26,8 @@ const bundle = await build({
 
 function createDom(t, html = '') {
   const dom = new JSDOM(html, { runScripts: 'outside-only', pretendToBeVisual: true, url: 'https://diagnostics.invalid/' });
+  // JSDOM lacks this browser API; use the standard Node UTF-8 decoder.
+  dom.window.TextDecoder ??= TextDecoder;
   t.after(() => dom.window.close());
   return dom;
 }

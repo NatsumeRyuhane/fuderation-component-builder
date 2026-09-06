@@ -4,9 +4,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assembleComponent, analyseMode, validate, toEnvelope, LIMITS } from '../../../../scripts/build.mjs';
 
-export const DIAGNOSTICS = ['dsl', 'dsl-guard', 'iframe'].map((id) => ({
+export const DIAGNOSTICS = ['dsl', 'dsl-guard', 'iframe', 'iframe-data'].map((id) => ({
   id,
-  mode: id === 'iframe' ? 'iframe' : 'dsl',
+  mode: id.startsWith('iframe') ? 'iframe' : 'dsl',
   directory: fileURLToPath(new URL(`../assets/diagnostics/${id}/`, import.meta.url)),
 }));
 

@@ -1,0 +1,26 @@
+<div class="lab" data-result="pending">
+  <small>COMPONENT LAB / 04 · PACKED DATA</small>
+  <h2>Every byte accounted for.</h2>
+  <p>18,002 bytes travel as 9,602 Base32768 characters. Six checks inspect the decoded data and bridge results.</p>
+  <button type="button" data-run data-component-trigger="1">Rerun data checks</button>
+  <p data-summary role="status" aria-live="polite">NOT RUN · waiting for the script.</p>
+  <ol>
+    <li data-check="bytes">PENDING · every binary byte</li>
+    <li data-check="text">PENDING · UTF-8 and JSON literals</li>
+    <li data-check="padding">PENDING · padding and normalization</li>
+    <li data-check="invalid">PENDING · malformed input rejection</li>
+    <li data-check="dom">PENDING · full DOM round trip</li>
+    <li data-check="storage">PENDING · awaited storage round trip</li>
+  </ol>
+  <h3>Decoded text</h3>
+  <pre data-text>UNSET</pre>
+  <label>Packed readback · scroll to inspect
+    <textarea data-value readonly rows="3" spellcheck="false">UNSET</textarea>
+  </label>
+  <p data-dom-text hidden>UNSET</p>
+  <h3>Visual observations</h3>
+  <p>□ Text wraps and the full border is visible at 320px and 480px.</p>
+  <p>□ The decoded sample shows Chinese, an emoji, literal markup and separate lines.</p>
+  <p>□ Tab reaches the rerun button and readback; Enter reruns the checks.</p>
+  <small>Automatic PASS does not confirm these observations. Uses only fcb.diagnostics.packed.v1 on this device.</small>
+</div>
