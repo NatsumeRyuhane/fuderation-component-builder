@@ -4,16 +4,17 @@
 // The runtime chunk emits DSL components as
 //   <div class="story-inline-component is-clickable" data-component-script="…"
 //        role="button" tabindex="0">
-// but the code that binds the click and executes that script is NOT in any chunk
-// reachable from the site's asset manifest (see RUNTIME_INTERNALS.md §3). So
-// this is a reimplementation from the observed contract, not vendored code —
-// treat its details as *best-effort*, unlike everything the real module does.
+// The production executor was located in MessageBubble-lB0l6UTk.js via Chat's
+// lazy dependency map on 2026-09-06. This remains a reconstruction, not vendored
+// code. Its 12-statement execution cap, quote-aware splitting, awaited getters,
+// and equality-guard halt now follow that source (RUNTIME_INTERNALS.md §3).
 //
 // What is faithful, because it is read straight out of the runtime's own iframe
 // bridge source: the whitelist, the selector rules (`@host`, querySelector only,
 // 200-char cap), and every function's behaviour.
 
 import { HOST_ACTIONS } from './host.js';
+import { DSL_EXECUTION_LIMIT, splitDslStatements } from '../../scripts/dsl-statements.mjs';
 
 // Mirrors the runtime's `Se()` pure-DSL check.
 export const BRIDGE_FNS = new Set([
@@ -169,7 +170,7 @@ async function evaluate(node, bridge) {
  */
 export async function runDsl(script, root, host) {
   const bridge = makeBridge(root, host);
-  const lines = statements(script);
+  const lines = splitDslStatements(script).slice(0, DSL_EXECUTION_LIMIT);
   let ran = 0;
 
   for (const line of lines) {
@@ -191,8 +192,7 @@ export async function runDsl(script, root, host) {
     }
     ran += 1;
 
-    // The guide states requireInputEquals halts the remaining calls on
-    // mismatch. That is the one DSL semantic we could not verify from source.
+    // The production executor stops its loop when an equality guard fails.
     if (call.name === 'requireInputEquals' && result === false) {
       return { ran, halted: true, error: null };
     }

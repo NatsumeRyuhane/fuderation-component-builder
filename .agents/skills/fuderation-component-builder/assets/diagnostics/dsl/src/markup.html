@@ -1,30 +1,20 @@
-<!-- Diagnostic comments must disappear from the exported HTML. -->
 <div class="diag">
-  <small>COMPONENT LAB / 01 · DSL</small>
+  <small>COMPONENT LAB / 01 · DSL · REV 2</small>
   <h3>Bridge assertions</h3>
-  <p>Runs on click. Five checks must pass in order. An assertion failure stops the chain and shows a toast.</p>
+  <p>Runs on click. Three checks in 12 statements. Storage and style checks have their own panels.</p>
   <button type="button" data-component-trigger="1">Run checks</button>
   <p data-summary role="status" aria-live="polite">NOT RUN · click Run checks.</p>
   <ol>
     <li data-check-value>PENDING · input value and exact spaces</li>
     <li data-check-text>PENDING · text, Unicode and literal slashes</li>
-    <li data-check-storage>PENDING · storage reset and round trip</li>
-    <li data-check-class>PENDING · class added and old class removed</li>
     <li data-check-progress>PENDING · progress reaches 100%</li>
   </ol>
   <label>Value probe <input data-input readonly value="UNSET" /></label>
   <p data-text-probe>UNSET</p>
-  <input data-storage-probe readonly value="UNSET" aria-label="Storage readback" />
-  <p data-class-probe class="diagnostic-remove">CLASS TOKEN</p>
   <div class="track"><div data-bar></div></div>
   <p data-percent>0%</p>
-  <h4>Visual checklist · inspect after PASS</h4>
-  <p>□ REVEALED appears; the warning below disappears.</p>
-  <div data-show-probe style="display:none">REVEALED · show() worked</div>
-  <div data-hide-probe>WARNING · hide() should remove this line</div>
-  <p>□ The STYLE swatch changes from blue to green.</p>
-  <div data-style-probe style="background-color:#bfdbfe">STYLE</div>
-  <p>□ The green bar fills its track and reads 100%.</p>
+  <h4>Visual checklist</h4>
+  <p>□ The bar fills its track and reads 100%.</p>
   <p>□ At 320px and 480px: text wraps, edges remain visible, and the button stays readable.</p>
-  <small>PASS covers the five assertions, not the visual checklist. Reload to reset. The storage probe uses only fcb.diagnostics.dsl.v1.</small>
+  <small>PASS covers three assertions. Reload before rerunning.</small>
 </div>

@@ -1,3 +1,2 @@
-Use DiagnosticDSL only when asked to test the component build or DSL runtime. It takes no parameters. Invoke exactly:
+Use DiagnosticDSL to test DSL input, text and progress bridges. No parameters. Click Run checks. Storage and style tests use DiagnosticDSLStorage and DiagnosticDSLStyle.
 <$DiagnosticDSL$></$DiagnosticDSL$>
-The user clicks Run checks. A completed assertion chain reports PASS; an interrupted chain stays RUNNING and reports an error toast. Visual checks remain manual.

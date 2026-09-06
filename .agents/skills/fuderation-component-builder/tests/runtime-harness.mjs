@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { build } from 'esbuild';
 import { JSDOM } from 'jsdom';
+import { applyWorkshopFieldStripping } from '../../../../scripts/workshop-import.mjs';
 
 const repository = fileURLToPath(new URL('../../../../', import.meta.url));
 const bundle = await build({
@@ -44,6 +45,7 @@ export function createHost({ brokenStorage = false } = {}) {
 }
 
 function render(t, component) {
+  component = applyWorkshopFieldStripping(component);
   const dom = createDom(t);
   const { window } = dom;
   window.eval(bundle.outputFiles[0].text);

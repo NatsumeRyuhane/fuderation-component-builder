@@ -88,7 +88,7 @@ npm run preview -- --open --port 5199
 
 详见 [`tools/preview/README.md`](tools/preview/README.md)。
 
-技能目录内置三个自检组件：DSL 桥接断言、DSL 拒绝控制组、iframe 自动检查与视觉清单。
+技能目录内置六个自检组件：DSL 基础、存储、样式、拒绝控制组，以及 iframe 运行时和密集数据检查。
 运行 `npm run build:diagnostics` 生成可导入文件，`npm run test:diagnostics` 验证功能与故障检测。
 使用步骤见 [DIAGNOSTICS.md](.agents/skills/fuderation-component-builder/DIAGNOSTICS.md)。
 
@@ -106,6 +106,10 @@ npm run preview -- --open --port 5199
   也禁止任何联网。
 
 用 `npm run typecheck` 对 TypeScript 源码做类型检查，`npm test` 运行构建回归测试。
+
+Workshop 导入时还会再次去注释：它不识别 JavaScript 正则字面量，并会删除 CSS 字符串内的注释标记。
+涉及连续斜杠的正则请使用带字符串参数的 `new RegExp(...)`；CSS 字面量斜杠请转义。
+构建会提示这类风险，预览和自检也会模拟该导入处理。
 
 ## 构建时压缩了什么
 
@@ -226,7 +230,7 @@ DSL 参数由运行时的字符串解析器读取，不是 JS 引擎，未必会
 1. 脚本命中原生 JS 检测（`const`/`function`/`=>`/`document.`/`setTimeout(` 等）；
 2. 脚本的**前 32 条语句**中存在非白名单调用（32 是**校验窗口**，不是数量上限——
    运行时先取前 32 条再逐条校验，因此全为白名单调用的 40 条脚本照样留在 DSL 模式，
-   第 33 条起既不校验也不保证执行）；
+   但执行器只执行前 12 条）；
 3. *（无脚本时）* HTML 含 `<html`/`<head`/`<body`；
 4. *（无脚本时）* **CSS 超过 1000 字符**；
 5. *（无脚本时）* CSS 含 `@media`/`@supports`/`@keyframes`/`@font-face` 等 at-rule；
@@ -248,7 +252,7 @@ DSL 参数由运行时的字符串解析器读取，不是 JS 引擎，未必会
 - `html` + `css` + `script` 合计 ≤ 20000 字符。**按处理后的构建产物计**，
   详见[构建时压缩了什么](#构建时压缩了什么)。
 - DSL 模式额外限制：最多 1000 字符 CSS（去注释后）。桥接调用的 32 条是**校验窗口**而非上限——
-  运行时只校验前 32 条语句，多出来的不校验也不保证执行，别依赖。
+  模式只校验前 32 条语句；生产执行器只执行前 **12 条**，第 13 条起会静默跳过。
 - 禁止真实联网、真实登录、真实支付。**也不能加载外部字体**
   （iframe CSP 的 `font-src` 只允许 `data:`，Google Fonts 会静默失败）。
 - 组件在 VN 模式下不生效。

@@ -81,7 +81,7 @@ async function runDiagnosticChecks() {
   });
   await checkDiagnostic('literals', 'Unicode, slashes and escaped tag literals', function checkLiterals() {
     const descriptiveLiteral = 'https://example.com/a/*literal*/ // 欢迎';
-    const literalPattern = /\/\*literal\*\//;
+    const literalPattern = new RegExp('/\\*literal\\*/');
     const escapedTag = '<\$DiagnosticEcho\$>';
     const expectedTag = '<' + String.fromCharCode(36) + 'DiagnosticEcho' + String.fromCharCode(36) + '>';
     diagnosticAssert(document.querySelector('[data-literal]').textContent === descriptiveLiteral, 'Literal text changed');

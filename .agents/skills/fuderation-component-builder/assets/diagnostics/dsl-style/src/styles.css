@@ -1,0 +1,23 @@
+/*
+  This deliberately documented stylesheet exceeds the DSL CSS budget before
+  comment stripping. Its executable declarations must stay below 1000 chars.
+  It uses no hover rules, pseudo-elements or dynamic class styling: the DSL
+  runtime flattens selectors into inline styles only once, before execution.
+  Class changes are asserted through query selectors in the bridge script.
+  Visibility and color probes use direct bridge style mutations instead.
+  The exported fixture should retain all of these declarations, including
+  the last rule for the style swatch; do not use comments to force iframe mode.
+*/
+.diag{box-sizing:border-box;width:100%;max-width:360px;padding:16px;border:1px solid #8b9d92;background:#f7f5ee;color:#193c36;font:14px/1.5 Georgia,serif;overflow-wrap:anywhere}
+.diag h3{font-size:24px;margin:8px 0}
+.diag h4{margin:16px 0 8px}
+.diag p{margin:8px 0}
+.diag small{font:11px/1.5 monospace}
+.diag button{width:100%;min-height:42px;background:#193c36;color:#fff;border:0;font:inherit}
+.diag input{box-sizing:border-box;width:100%;min-height:36px;font:12px monospace}
+.diag ol{padding-left:22px}
+.diag li{margin:6px 0}
+.diag .track{height:10px;background:#d8ded7}
+.diag [data-bar]{width:0%;height:100%;background:#21744e}
+.diag [data-summary]{font-weight:bold}
+.diag [data-style-probe]{padding:8px}

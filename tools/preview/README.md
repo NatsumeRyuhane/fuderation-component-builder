@@ -138,9 +138,12 @@ npm run vendor:runtime -- --update  # 从线上重新拉取（含样式表子集
 
 运行 `npm run build:diagnostics`，再载入
 `.agents/skills/fuderation-component-builder/assets/diagnostics/` 下 `dsl`、
-`dsl-guard`、`iframe` 目录中生成的 `component.json`。它们分别提供 DSL 桥接断言、
+`dsl-storage`、`dsl-style`、`dsl-guard`、`iframe`、`iframe-data` 目录中生成的 `component.json`。它们分别提供 DSL 桥接断言、
 故意触发拒绝的 DSL 控制组，以及自动运行的 iframe 功能检查和独立的视觉勾选表。
 
 `npm run test:diagnostics` 运行 DOM 功能测试，并故意破坏部分操作验证自检能够报错。
 这些测试不等于浏览器视觉检查；DSL 执行仍使用预览工具的重建解释器。
 完整步骤与验证范围见 [DIAGNOSTICS.md](../../.agents/skills/fuderation-component-builder/DIAGNOSTICS.md)。
+
+预览现在先模拟 Workshop 对 HTML/CSS/脚本的导入去注释，再交给运行时渲染。
+DSL 执行最多 12 条语句（模式校验的 32 条不是执行预算）；超过时会显示警告。

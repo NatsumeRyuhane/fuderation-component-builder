@@ -26,5 +26,5 @@
 .lab .swatches span:nth-child(2) { background:#21744e; }
 .lab .swatches span:nth-child(3) { background:#906222; }
 .lab .checker { height:36px; margin-top:6px; border:1px solid #8b9d92; background:repeating-conic-gradient(#193c36 0% 25%,#f7f5ee 0% 50%) 0 0 / 12px 12px; }
-.lab .css-literal::after { content:"/* CSS literal */"; }
+.lab .css-literal::after { content:"\2f * CSS literal *\2f "; }
 @media (prefers-reduced-motion: reduce) { .lab * { scroll-behavior:auto; } }
