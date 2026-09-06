@@ -1,0 +1,7 @@
+/* Plain, bounded CSS keeps the negative control in DSL mode. */
+.guard{box-sizing:border-box;width:100%;max-width:360px;padding:16px;border:1px solid #b79460;background:#fff8e9;color:#533e20;font:14px/1.5 Georgia,serif;overflow-wrap:anywhere}
+.guard h3{font-size:24px;margin:8px 0}
+.guard small{font:11px/1.5 monospace}
+.guard button{width:100%;min-height:42px;background:#533e20;color:white;border:0;font:inherit}
+.guard input{box-sizing:border-box;width:100%;min-height:36px;margin-bottom:10px;font:12px monospace}
+.guard [data-forbidden]{padding:10px;border:1px dashed #b79460;font-weight:bold}

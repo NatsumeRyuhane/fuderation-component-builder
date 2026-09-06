@@ -8,6 +8,11 @@ npm run preview -- --open --port 5199
 用**真实的 Fuderation 运行时**（冻结在 [`vendor/`](../../vendor/)）把 `src/` 渲染进模拟聊天气泡。
 界面语言为中文，配色与排版直接取自站点自己的样式表。修改 `src/` 会自动刷新。
 
+`src/` 预览与 `npm run build` 复用同一组装函数：HTML / CSS / `script.js` 会先去注释，
+iframe 模式的 `script.js` 还会按 `meta.json` 中的 `build` 设置缩短合适的局部变量名，
+`script.ts` 继续编译并完整压缩。因此显示的字符数和渲染模式基于处理后的产物。
+手动载入外部 `component.json` 时按文件内容预览，不额外进行构建清理。
+
 Workshop 自带的预览把所有组件都塞进 iframe、不替换 `$参数$`、也跑不了宿主桥接。
 这个工具三件事都做，所以它能提前暴露那些「只有真机试玩才会发现」的问题。
 
@@ -128,3 +133,14 @@ npm run vendor:runtime -- --update  # 从线上重新拉取（含样式表子集
 ```
 
 详见 [`vendor/README.md`](../../vendor/README.md)，其中包含许可证说明 —— fork 本仓库前请先阅读。
+
+## 技能内置自检组件
+
+运行 `npm run build:diagnostics`，再载入
+`.agents/skills/fuderation-component-builder/assets/diagnostics/` 下 `dsl`、
+`dsl-guard`、`iframe` 目录中生成的 `component.json`。它们分别提供 DSL 桥接断言、
+故意触发拒绝的 DSL 控制组，以及自动运行的 iframe 功能检查和独立的视觉勾选表。
+
+`npm run test:diagnostics` 运行 DOM 功能测试，并故意破坏部分操作验证自检能够报错。
+这些测试不等于浏览器视觉检查；DSL 执行仍使用预览工具的重建解释器。
+完整步骤与验证范围见 [DIAGNOSTICS.md](../../.agents/skills/fuderation-component-builder/DIAGNOSTICS.md)。
