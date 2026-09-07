@@ -22,16 +22,69 @@ const bundle = build({
 const component = (script) => ({ name: 'PreviewProbe', html: '<button data-result>NOT RUN</button>', css: '', script });
 const calls = (count) => Array.from({ length: count }, (_, i) => `setText('[data-result]', '${i + 1}')`).join('\n');
 
-async function preview(t) {
+async function preview(t, setup = () => {}) {
   const dom = new JSDOM(await readFile(path.join(previewDir, 'index.html'), 'utf8'), {
     url: 'http://localhost/', runScripts: 'outside-only',
   });
   t.after(() => dom.window.close());
   dom.window.fetch = async () => ({ json: async () => ({ component: component('') }) });
+  setup(dom.window);
   dom.window.eval((await bundle).outputFiles[0].text);
   await new Promise(setImmediate);
   return dom.window;
 }
+
+test('manual refresh holds edits; reload resets imported parameters and history', async (t) => {
+  const win = await preview(t);
+  const doc = win.document;
+  win.__preview.setComponent({ ...component(''), html: '<div>$Name$</div>' });
+  const toggle = doc.querySelector('[data-auto-refresh]');
+  toggle.checked = false;
+  toggle.dispatchEvent(new win.Event('change'));
+  const param = doc.querySelector('[data-param]');
+  param.value = 'edited';
+  param.dispatchEvent(new win.Event('input'));
+  assert.match(doc.querySelector('[data-bubble]').textContent, /示例Name/);
+  doc.querySelector('[data-apply-changes]').click();
+  assert.match(doc.querySelector('[data-bubble]').textContent, /edited/);
+  win.__preview.host.fillInput('history');
+  doc.querySelector('[data-reload-component]').click();
+  assert.equal(doc.querySelector('[data-param]').value, '示例Name');
+  assert.equal(win.__preview.state.logs.length, 0);
+  assert.equal(doc.querySelector('[data-chat-input]').value, '');
+  assert.equal(win.__preview.state.origin, 'file');
+});
+
+test('source events debounce, pause while disabled, and reload only on explicit action', async (t) => {
+  let changed;
+  let fetches = 0;
+  const pending = new Map();
+  let id = 0;
+  const win = await preview(t, (win) => {
+    win.EventSource = class { addEventListener(type, fn) { changed = fn; } };
+    win.fetch = async () => {
+      fetches++;
+      return { json: async () => ({ component: component('') }) };
+    };
+    win.setTimeout = (fn, delay) => { assert.equal(delay, 400); pending.set(++id, fn); return id; };
+    win.clearTimeout = (timer) => pending.delete(timer);
+  });
+  changed(); changed(); changed();
+  assert.equal(fetches, 1);
+  assert.equal(pending.size, 1);
+  await [...pending.values()][0]();
+  assert.equal(fetches, 2);
+  const toggle = win.document.querySelector('[data-auto-refresh]');
+  changed();
+  toggle.checked = false;
+  toggle.dispatchEvent(new win.Event('change'));
+  changed();
+  assert.equal(pending.size, 0);
+  assert.equal(fetches, 2);
+  win.document.querySelector('[data-reload-component]').click();
+  await new Promise(setImmediate);
+  assert.equal(fetches, 3);
+});
 
 test('preview warns about damaged regex and mounts the actual stripped script', async (t) => {
   const win = await preview(t);
