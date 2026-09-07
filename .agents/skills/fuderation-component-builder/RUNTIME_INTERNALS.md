@@ -11,6 +11,9 @@
 > <https://chat.fuderation.com/guide#component-guide-section-1> — the guide wins
 > on *intent*; this file wins on *observed behaviour*.
 
+- **Production corrections:** 2026-09-06 — located `MessageBubble-lB0l6UTk.js`
+  through `Chat-srTCx5hv.js`; verified the 12-statement DSL executor and the
+  editor's regex-unsafe import-time comment stripping.
 - **Analyzed:** 2026-09-03 (full re-verification; supersedes the 2026-06-27 snapshot)
 - **Source chunks:**
   - `assets/storyComponents-DHDQXgJC.js` — the component runtime (parser,
@@ -114,9 +117,8 @@ else
    > **The 32 is a validation window, not a cap.** `.slice(0, 32)` happens
    > *before* `.every(...)`, so a 40-call all-whitelisted script validates on its
    > first 32 statements and **stays in DSL mode**. Statements 33+ are never
-   > checked. Whether they are also *executed* cannot be answered from the
-   > reachable code (§3) — the executor is not in any manifest-reachable chunk.
-   > Treat anything past the 32nd statement as unspecified and do not rely on it.
+   > checked. The independently located executor (§3) only parses the first
+   > **12 statements**, so statements 13+ never execute in production DSL.
 
 **With no script at all**, iframe mode when (`_e`):
 
@@ -195,11 +197,14 @@ So a DSL script is a click handler and an iframe script is an init routine. A
 component that must render its state before any interaction (title from a param,
 avatar, etc.) needs iframe mode or plain `$param$` substitution in the HTML.
 
-> **Not located.** The code that turns the placeholder div into an `<iframe>`,
-> binds the DSL click handler, and honours `data-component-trigger="1"` is not
-> in any chunk reachable from the manifest. So the DSL interpreter's exact
-> semantics (notably whether `requireInputEquals` truly halts the remaining
-> calls) remain unverified from source. The guide asserts it does.
+> **Located 2026-09-06.** `Chat-srTCx5hv.js` has a lazy dependency map pointing
+> to `MessageBubble-lB0l6UTk.js` (absent from the top-level manifest). Its `es()`
+> splits statements while tracking single/double quotes and bracket nesting;
+> `ts()` takes `.slice(0, 12)` **before** parsing calls. `Pt()` also caps its loop
+> at 20, but that cannot increase the 12-call parser cap. `Dt()` awaits nested
+> storage getters, and `requireInputEquals` stops the loop on mismatch. The
+> diagnostic originally containing 31 statements therefore stopped after the
+> second PASS (statement 12), before any storage call, with no toast.
 
 ## 4. Bridge whitelist (26 names, incl. 2 undocumented aliases)
 
@@ -494,9 +499,9 @@ load from `data:`/`blob:`/`http(s)`.
 as `<iframe sandbox="allow-scripts" referrerpolicy="no-referrer" srcdoc="…">` —
 `allow-scripts` **without** `allow-same-origin`, i.e. a unique opaque origin with
 no access to the app's `localStorage`/`indexedDB`/cookies. The chat-path mount
-code was not located (§3), but it uses the same builder and the same
-`postMessage`-only architecture, so treat direct browser-storage access as
-unsupported in every mode.
+in `MessageBubble-lB0l6UTk.js` was verified on 2026-09-06 and uses the same
+`allow-scripts` sandbox. Use the host storage bridge rather than direct iframe
+access to the application's browser storage.
 
 ## 9. Rendering & sizing (fluid width, content height, auto-downscale)
 
@@ -559,6 +564,16 @@ unwrapped from `<!doctype>/<html>/<head>/<body>` — into `html`. A full HTML
 document pastes in cleanly. Exported JSON carries all four; this repo's build
 emits `source: ""` and the three derived fields directly, which the importer
 accepts.
+
+**Editor field stripping (verified 2026-09-06).** On JSON import,
+`StoryComponentEditor-BDSa5M3v.js` runs its own `u()` comment scanner on script,
+`ie()` on HTML, and `de()` on CSS. `u()` tracks quoted strings/template literals
+but does not recognize regex literals. An escaped-slash regex can contain `//`
+which is mistaken for a line comment, truncating the regex and causing a parse
+error before any authored script executes. Use a quoted `RegExp` constructor
+for affected patterns. CSS uses a regex comment stripper even inside strings;
+escape literal slashes when displaying comment markers. Our syntax-aware build
+stripping does not replace or disable these later site transformations.
 
 **Import repair.** `Me()` converts literal `\n` escape sequences into real
 newlines for `html`/`css`/`ai_prompt` when the field contains no real newline,

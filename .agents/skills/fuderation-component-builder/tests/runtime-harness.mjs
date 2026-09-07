@@ -1,10 +1,12 @@
 // DOM assertions, not browser/layout verification. Render through the vendored
 // runtime; DSL execution uses the preview's documented reconstruction.
 import assert from 'node:assert/strict';
+import { TextDecoder } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { build } from 'esbuild';
 import { JSDOM } from 'jsdom';
+import { applyWorkshopFieldStripping } from '../../../../scripts/workshop-import.mjs';
 
 const repository = fileURLToPath(new URL('../../../../', import.meta.url));
 const bundle = await build({
@@ -25,6 +27,8 @@ const bundle = await build({
 
 function createDom(t, html = '') {
   const dom = new JSDOM(html, { runScripts: 'outside-only', pretendToBeVisual: true, url: 'https://diagnostics.invalid/' });
+  // JSDOM lacks this browser API; use the standard Node UTF-8 decoder.
+  dom.window.TextDecoder ??= TextDecoder;
   t.after(() => dom.window.close());
   return dom;
 }
@@ -41,6 +45,7 @@ export function createHost({ brokenStorage = false } = {}) {
 }
 
 function render(t, component) {
+  component = applyWorkshopFieldStripping(component);
   const dom = createDom(t);
   const { window } = dom;
   window.eval(bundle.outputFiles[0].text);

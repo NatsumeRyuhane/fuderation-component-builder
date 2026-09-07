@@ -17,6 +17,7 @@
   "devDependencies": {
     "@csstools/css-tokenizer": "^3.0.4",
     "acorn": "^8.18.0",
+    "base32768": "5.0.1",
     "dompurify": "^3.4.14",
     "esbuild": "^0.25.0",
     "jsdom": "^26.1.0",

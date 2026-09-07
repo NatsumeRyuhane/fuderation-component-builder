@@ -1,0 +1,16 @@
+.lab,.lab *{box-sizing:border-box}
+.lab{width:100%;max-width:360px;padding:18px;border:1px solid #8b9d92;background:#f7f5ee;color:#193c36;font:14px/1.5 Georgia,serif;overflow-wrap:anywhere}
+.lab h2{font-size:27px;line-height:1.15;margin:10px 0}
+.lab h3{font-size:18px;margin:18px 0 8px}
+.lab p{margin:8px 0}
+.lab small{font:11px/1.5 monospace}
+.lab button{width:100%;min-height:42px;padding:8px;border:0;background:#193c36;color:#fff;font:inherit;cursor:pointer}
+.lab button:disabled{opacity:.6;cursor:wait}
+.lab button:focus-visible,.lab button:hover{outline:3px solid #bc8b36;outline-offset:2px}
+.lab [data-summary]{font-weight:bold;border-bottom:1px solid #8b9d92;padding:10px 0}
+.lab ol{padding-left:22px}
+.lab li{padding:6px 0;border-bottom:1px dotted #c4cdc2}
+.lab [data-state=pass]{color:#17633c}
+.lab [data-state=fail]{color:#a31c24;font-weight:bold}
+.lab pre{white-space:pre-wrap;font:12px/1.5 monospace}
+.lab textarea{width:100%;font:12px/1.5 monospace;resize:vertical}

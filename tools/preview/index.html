@@ -81,6 +81,12 @@
       <input type="file" accept="application/json,.json" data-file-input hidden>
     </div>
     <p class="hint">也可以直接把 <code>component.json</code> 拖进窗口任意位置。</p>
+    <div class="source-row">
+      <button type="button" class="btn" data-reload-component>重新加载组件</button>
+      <button type="button" class="btn ghost" data-apply-changes>应用修改</button>
+      <label class="raw-toggle"><input type="checkbox" data-auto-refresh checked> 自动刷新</label>
+    </div>
+    <p class="hint">重新加载会恢复默认参数并清空消息和调用记录。自动刷新在最后一次修改后等待 400 ms；关闭后点击「应用修改」。</p>
 
     <h2>参数</h2>
     <div class="params" data-params></div>

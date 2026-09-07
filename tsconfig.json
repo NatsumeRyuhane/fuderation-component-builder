@@ -11,5 +11,9 @@
     "isolatedModules": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src/**/*.ts", "types/**/*.d.ts"]
+  "include": [
+    "src/**/*.ts",
+    "types/**/*.d.ts",
+    ".agents/skills/fuderation-component-builder/assets/diagnostics/**/*.ts"
+  ]
 }

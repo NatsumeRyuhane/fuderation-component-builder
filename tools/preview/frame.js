@@ -5,8 +5,8 @@
 //        data-story-component-frame="1" data-story-frame-id="sc_xxxx"></div>
 // and stashes the built document in its own LRU, retrievable with the module's
 // exported `h(frameId)` getter. The code that turns the placeholder into a real
-// <iframe> is not in any reachable chunk (RUNTIME_INTERNALS.md §3), so this is
-// reconstructed from the contract: the sandbox flags match the editor's own
+// <iframe> was located in MessageBubble-lB0l6UTk.js on 2026-09-06. This mount is
+// still reconstructed from the contract: the sandbox flags match the editor's own
 // preview frame, and the resize protocol matches the document's own script.
 
 const RESIZE_TYPE = 'story-component-resize';

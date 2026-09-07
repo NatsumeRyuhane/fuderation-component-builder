@@ -17,6 +17,7 @@ import { existsSync, watch } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assembleComponent } from './build.mjs';
+import { listenPreview } from './listen-preview.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PREVIEW = path.join(ROOT, 'tools', 'preview');
@@ -152,14 +153,20 @@ const server = createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => {
-  console.log(`\n  Component preview  →  http://localhost:${PORT}\n`);
+try {
+  const actualPort = await listenPreview(server, PORT);
+  const previewUrl = `http://localhost:${actualPort}`;
+  if (PORT !== 0 && actualPort !== PORT) console.log(`  Port ${PORT} is occupied; using ${actualPort}.`);
+  console.log(`\n  Component preview  →  ${previewUrl}\n`);
   console.log('  Renders src/ through the vendored runtime in a mock chat bubble.');
   console.log('  Edits to src/ reload automatically. Ctrl-C to stop.\n');
   if (argv.includes('--open')) {
     const cmd = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
     import('node:child_process').then(({ spawn }) =>
-      spawn(cmd, [`http://localhost:${PORT}`], { stdio: 'ignore', detached: true }).unref(),
+      spawn(cmd, [previewUrl], { stdio: 'ignore', detached: true }).unref(),
     );
   }
-});
+} catch (error) {
+  console.error(`✗ Cannot start preview: ${error.message}`);
+  process.exit(1);
+}

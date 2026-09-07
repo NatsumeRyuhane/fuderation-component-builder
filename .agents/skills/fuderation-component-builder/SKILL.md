@@ -18,7 +18,7 @@ Common uses: info cards, task panels, mock login screens, progress bars, copy-to
 | [RUNTIME_INTERNALS.md](RUNTIME_INTERNALS.md) | Reverse-engineered runtime behaviour: execution modes, sanitizer, sizing, async bridge. Source of truth for what actually happens. |
 | [EXAMPLES.md](EXAMPLES.md) | Four annotated real-world components (media card, dice, self-switching message, two-component state machine). |
 | [EXAMPLE_PASSWORD_GATE.md](EXAMPLE_PASSWORD_GATE.md) | One complete `src/` → `component.json` walkthrough. |
-| [DIAGNOSTICS.md](DIAGNOSTICS.md) | Build and run the skill's self-diagnostic DSL, negative-control, and iframe components; functional assertions and manual visual checklists for build/runtime changes. |
+| [DIAGNOSTICS.md](DIAGNOSTICS.md) | Build and run the skill's self-diagnostic DSL, negative-control, iframe, and packed-data components; functional assertions and manual visual checklists for build/runtime changes. |
 
 ## Repository layout
 
@@ -63,7 +63,29 @@ They apply only to `script.js`, are shared by preview/build, and are not exporte
 Disable renaming when code relies on function-source reflection (`toString()`).
 The renamer keeps the source if the AST changes beyond identifiers, the output
 does not get shorter, or the detected mode would change. DSL scripts are never
-renamed; TypeScript's existing full minification path is unchanged.
+renamed; TypeScript remains fully minified, with literal Unicode preserved by
+esbuild's `charset: 'utf8'`.
+
+### Workshop import can alter otherwise valid source
+
+The site's import-time JavaScript comment stripper understands strings but not
+regex literals. A regex containing adjacent slash characters can be truncated
+as a comment and prevent the entire iframe script from starting. Use `new
+RegExp(...)` with a quoted pattern for these cases. The editor also strips
+comment-looking text inside CSS strings; use CSS slash escapes for literal
+comment markers. Build warnings and the local preview model these transformations.
+See [DIAGNOSTICS.md](DIAGNOSTICS.md#workshop-import-compatibility) for regressions.
+
+### Packing large data payloads
+
+When the user wants lots of embedded data, or a data-heavy component approaches
+its character limit, try **Base32768** using the skill's
+[scripts/pack-data.mjs](scripts/pack-data.mjs) helper. Read
+[DATA_PACKING.md](DATA_PACKING.md) for generation, TypeScript integration, and
+verification. Use the upstream codec's safe BMP alphabet and padding rules;
+keep packing only when the final build is smaller after decoder overhead.
+This is for mechanically generated data in iframe components, not AI prompts
+or executable-source packing. Small plain literals usually need no encoding.
 
 ### Importing preexisting component code
 
@@ -128,7 +150,7 @@ widths before handing it over. Then suggest the user import `component.json` int
 
 Only after the static version renders correctly in playtest, add a script using bridge functions:
 
-- **`src/script.js`** — comments stripped without rewriting code. Write one bridge call per line, using only whitelisted names, to keep lightweight **DSL mode**. (Only the first 32 statements are validated; statements past that are neither checked nor guaranteed to run, so keep scripts under 32 calls.) Prefer this for simple components, using the [safe default set](#safe-defaults). Remember a DSL script is a **click handler** — it runs when the user clicks the component, not on render.
+- **`src/script.js`** — comments stripped without rewriting code. Write one bridge call per line, using only whitelisted names, to keep lightweight **DSL mode**. (Production executes only the first **12 statements**. The separate mode check inspects 32; that is not the execution budget.) Prefer this for simple components, using the [safe default set](#safe-defaults). Remember a DSL script is a **click handler** — it runs when the user clicks the component, not on render.
 - **`src/script.ts`** — compiled by esbuild to an inline IIFE (always **iframe mode**). Use for complex logic, event listeners, or anything that must run on mount. Treat bridge functions as ambient globals (declared in `types/bridge.d.ts`); never `import` them, and do not use `fetch`/networking.
 
 If the component has an input field, give the trigger button `data-component-trigger="1"` — it stops Enter inside the input from firing the global chat send.
@@ -411,7 +433,7 @@ to the other, carrying state in the parameter tags — see
 - Component name: 32 chars max
 - Description: 120 chars max
 - AI supplementary prompt: 1,000 chars max (counts toward storyline total)
-- DSL mode: 1,000 chars of CSS max (after comment stripping — the overflow is dropped silently); only the first 32 **statements** are validated (not the first 32 bridge calls — a non-bridge line among them is exactly what fails validation). Keep scripts under 32 statements; past that is unspecified.
+- DSL mode: 1,000 chars of CSS max (after comment stripping — the overflow is dropped silently); only the first 32 **statements** are validated (not the first 32 bridge calls — a non-bridge line among them is exactly what fails validation). Production executes only the first **12 statements**; statements 13+ are silently skipped.
 - `openUrl`: `http`/`https` only, DSL mode only
 - No real networking, auth, payment, or backend operations
 - VN mode: components disabled

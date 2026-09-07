@@ -5,8 +5,11 @@ npm run preview          # http://localhost:5173
 npm run preview -- --open --port 5199
 ```
 
+端口被占用时会依次尝试后续端口（最多 100 个），终端和 `--open` 使用实际启动地址。
+`--port 0` 可让系统分配空闲端口。
+
 用**真实的 Fuderation 运行时**（冻结在 [`vendor/`](../../vendor/)）把 `src/` 渲染进模拟聊天气泡。
-界面语言为中文，配色与排版直接取自站点自己的样式表。修改 `src/` 会自动刷新。
+界面语言为中文，配色与排版直接取自站点自己的样式表。默认开启自动刷新，在最后一次修改后等待 400 ms 再更新。
 
 `src/` 预览与 `npm run build` 复用同一组装函数：HTML / CSS / `script.js` 会先去注释，
 iframe 模式的 `script.js` 还会按 `meta.json` 中的 `build` 设置缩短合适的局部变量名，
@@ -49,6 +52,10 @@ Workshop 自带的预览把所有组件都塞进 iframe、不替换 `$参数$`�
 导出信封（`{type, version, component:{…}}`）和裸的组件对象都能识别；如果只有单栏位
 `source` 而没有 `html`，会按站点的规则拆出 HTML / CSS / Script。载入外部文件后可以随时
 「回到 src/」。
+
+- **重新加载组件**：重新读取 `src/`（外部 JSON 使用已载入的快照），恢复默认参数，清空消息正文、聊天输入框和调用记录。本地存储仍由「清除本地存储」单独管理。
+- **自动刷新**：控制源码变更和参数／消息编辑的自动更新，连续编辑只在停下 400 ms 后刷新。关闭时取消待执行的自动刷新。
+- **应用修改**：立即应用待处理的修改，保留当前参数和调用记录；关闭自动刷新后用它手动更新。组件自身的按钮、动画和宿主桥接仍照常运行。
 
 ### 参数
 
@@ -138,9 +145,12 @@ npm run vendor:runtime -- --update  # 从线上重新拉取（含样式表子集
 
 运行 `npm run build:diagnostics`，再载入
 `.agents/skills/fuderation-component-builder/assets/diagnostics/` 下 `dsl`、
-`dsl-guard`、`iframe` 目录中生成的 `component.json`。它们分别提供 DSL 桥接断言、
+`dsl-storage`、`dsl-style`、`dsl-guard`、`iframe`、`iframe-data` 目录中生成的 `component.json`。它们分别提供 DSL 桥接断言、
 故意触发拒绝的 DSL 控制组，以及自动运行的 iframe 功能检查和独立的视觉勾选表。
 
 `npm run test:diagnostics` 运行 DOM 功能测试，并故意破坏部分操作验证自检能够报错。
 这些测试不等于浏览器视觉检查；DSL 执行仍使用预览工具的重建解释器。
 完整步骤与验证范围见 [DIAGNOSTICS.md](../../.agents/skills/fuderation-component-builder/DIAGNOSTICS.md)。
+
+预览现在先模拟 Workshop 对 HTML/CSS/脚本的导入去注释，再交给运行时渲染。
+DSL 执行最多 12 条语句（模式校验的 32 条不是执行预算）；超过时会显示警告。

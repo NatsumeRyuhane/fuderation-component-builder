@@ -1,0 +1,4 @@
+{
+  "name": "DiagnosticPackedData",
+  "description": "Base32768 data lab: byte integrity, Unicode, padding, rejection, DOM and storage round trips."
+}

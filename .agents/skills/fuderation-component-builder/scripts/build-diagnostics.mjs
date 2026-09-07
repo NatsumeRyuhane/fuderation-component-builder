@@ -1,12 +1,13 @@
 #!/usr/bin/env node
+import { splitDslStatements } from '../../../../scripts/dsl-statements.mjs';
 import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assembleComponent, analyseMode, validate, toEnvelope, LIMITS } from '../../../../scripts/build.mjs';
 
-export const DIAGNOSTICS = ['dsl', 'dsl-guard', 'iframe'].map((id) => ({
+export const DIAGNOSTICS = ['dsl', 'dsl-storage', 'dsl-style', 'dsl-guard', 'iframe', 'iframe-data'].map((id) => ({
   id,
-  mode: id === 'iframe' ? 'iframe' : 'dsl',
+  mode: id.startsWith('iframe') ? 'iframe' : 'dsl',
   directory: fileURLToPath(new URL(`../assets/diagnostics/${id}/`, import.meta.url)),
 }));
 
@@ -20,8 +21,8 @@ export async function assembleDiagnostics() {
     if (mode === 'dsl') {
       if (component.css.length > LIMITS.dslCss) errors.push('DSL CSS exceeds the runtime limit');
       // Count before the interpreter truncates to 32 statements.
-      const calls = component.script.split(/[\r\n;]+/).filter((line) => line.trim());
-      if (calls.length > LIMITS.dslCalls) errors.push('DSL calls exceed the runtime limit');
+      const calls = splitDslStatements(component.script);
+      if (calls.length > LIMITS.dslExecutionCalls) errors.push('DSL calls exceed the runtime limit');
     }
     if (errors.length) throw new Error(`${fixture.id}: ${errors.join('; ')}`);
     return { ...fixture, component };

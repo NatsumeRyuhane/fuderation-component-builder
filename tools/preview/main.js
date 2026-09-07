@@ -9,6 +9,8 @@ import { createHost, listenForFrameActions } from './host.js';
 import { mountFrames, listenForFrameResize, requestResize } from './frame.js';
 import { runDsl, statements, BRIDGE_FNS } from './dsl.js';
 import { renderMarkdown, describeRemovals } from './markdown.js';
+import { DSL_EXECUTION_LIMIT, splitDslStatements } from '../../scripts/dsl-statements.mjs';
+import { applyWorkshopFieldStripping } from '../../scripts/workshop-import.mjs';
 
 // Runtime exports, by their minified names (see RUNTIME_INTERNALS.md).
 const parseMessage = runtime.p;   // Pe: text + components -> nodes
@@ -59,6 +61,41 @@ const el = {
 
 let teardownActions = null;
 let teardownResize = null;
+let refreshTimer = null;
+let sourceDirty = false;
+let loadVersion = 0;
+const autoRefresh = $('[data-auto-refresh]');
+
+function cancelRefresh() {
+  clearTimeout(refreshTimer);
+  refreshTimer = null;
+}
+
+function scheduleRefresh() {
+  cancelRefresh();
+  if (autoRefresh.checked) refreshTimer = setTimeout(applyChanges, 400);
+}
+
+function applyChanges() {
+  cancelRefresh();
+  if (sourceDirty && state.origin === 'src') return loadFromSrc({ seedParams: false });
+  render();
+}
+
+function resetSession() {
+  state.logs = [];
+  state.before = state.after = state.rawMessage = '';
+  el.before.value = el.after.value = '';
+  $('[data-chat-input]').value = '';
+  renderLog();
+}
+
+function reloadComponent() {
+  cancelRefresh();
+  if (state.origin === 'src') return loadFromSrc({ reset: true });
+  resetSession();
+  adoptComponent(state.component, { originLabel: state.originLabel, origin: 'file' });
+}
 
 // ── message composition ──────────────────────────────────────────────────────
 
@@ -127,7 +164,7 @@ function renderParamEditor() {
     node.addEventListener('input', () => {
       state.params[node.dataset.param] = node.value;
       syncRawBox();
-      render();
+      scheduleRefresh();
     });
   }
 }
@@ -193,10 +230,10 @@ function analyse(component) {
   const deadPseudo = /::|:(?:hover|focus(?:-within|-visible)?|active|visited|target|before|after|first-line|first-letter)\b/i;
   // These *do* match — once, against the markup as it was at flatten time.
   const statePseudoStructural = /:(?:nth-child|nth-of-type|nth-last-child|nth-last-of-type|first-child|last-child|only-child|first-of-type|last-of-type|only-of-type|not|is|where|has)\b/i;
-  const allStatements = (t) =>
-    String(t || '').split(/[\r\n;]+/).map((x) => x.trim()).filter((x) => x && !x.startsWith('//'));
-
   const warnings = [];
+  const imported = applyWorkshopFieldStripping(component);
+  if (imported.script !== script) warnings.push('Workshop 导入会剥离脚本中的注释样式文本（包括部分正则字面量）；请检查导入后的语法。');
+  if (imported.css !== css) warnings.push('Workshop 导入会剥离 CSS 字符串中的注释样式文本；请转义字面量斜杠。');
   let mode, reason;
 
   if (script) {
@@ -227,10 +264,9 @@ function analyse(component) {
       warnings.push('结构性伪类（:nth-child 等）只在摊平的那一刻按初始 DOM 匹配一次，之后 DOM 变化不会重新套用。');
     }
     if (script) warnings.push('DSL 脚本在「点击组件」时才执行，不是挂载时。');
-    if (statements(script).length < allStatements(script).length) {
+    if (splitDslStatements(script).length > DSL_EXECUTION_LIMIT) {
       warnings.push(
-        `脚本共 ${allStatements(script).length} 条语句，DSL 校验只看前 32 条 —— ` +
-          '超出部分是否执行无法从可达代码确认，请勿依赖。',
+        `脚本共 ${splitDslStatements(script).length} 条语句，生产 DSL 只执行前 ${DSL_EXECUTION_LIMIT} 条；后面的语句会被静默跳过。32 条仅是模式校验窗口。`,
       );
     }
   }
@@ -251,9 +287,10 @@ function render() {
   const raw = state.component;
   if (!raw) return;
 
-  const [component] = normalizeList([raw]);
+  const imported = applyWorkshopFieldStripping(raw);
+  const [component] = normalizeList([imported]);
   const message = composedMessage();
-  const nodes = parseMessage(message, [raw], { streaming: false });
+  const nodes = parseMessage(message, [imported], { streaming: false });
 
   el.bubble.innerHTML = '';
   el.bubble.style.width = `${state.width}px`;
@@ -335,6 +372,8 @@ function bindDslComponents() {
 // ── loading a component ──────────────────────────────────────────────────────
 
 function adoptComponent(component, { originLabel, origin, seedParams = true }) {
+  cancelRefresh();
+  loadVersion++;
   state.component = { source: '', ai_prompt: '', description: '', script: '', css: '', ...component };
   state.origin = origin;
   state.originLabel = originLabel;
@@ -342,10 +381,9 @@ function adoptComponent(component, { originLabel, origin, seedParams = true }) {
   el.sourceChip.classList.toggle('file', origin === 'file');
   el.resetSrc.hidden = origin !== 'file';
 
-  if (seedParams) {
-    state.params = {};
-    for (const p of detectParams(state.component)) state.params[p] = `示例${p}`;
-  }
+  const previousParams = seedParams ? {} : state.params;
+  state.params = Object.fromEntries(detectParams(state.component).map((p) =>
+    [p, previousParams[p] ?? `示例${p}`]));
   state.rawMode = false;
   el.rawToggle.checked = false;
   applyRawModeUi();
@@ -354,15 +392,23 @@ function adoptComponent(component, { originLabel, origin, seedParams = true }) {
   render();
 }
 
-async function loadFromSrc() {
-  const res = await fetch('/api/component');
-  const payload = await res.json();
-  if (payload.error) {
-    el.mode.textContent = payload.error;
-    el.mode.className = 'mode mode-error';
-    return;
+async function loadFromSrc({ reset = false, seedParams = true } = {}) {
+  const version = ++loadVersion;
+  try {
+    const res = await fetch('/api/component');
+    const payload = await res.json();
+    if (version !== loadVersion) return;
+    if (payload.error) {
+      el.mode.textContent = payload.error;
+      el.mode.className = 'mode mode-error';
+      return;
+    }
+    sourceDirty = false;
+    if (reset) resetSession();
+    adoptComponent(payload.component, { originLabel: 'src/', origin: 'src', seedParams });
+  } catch (err) {
+    if (version === loadVersion) log({ kind: 'dsl-error', text: `加载失败：${err.message}` });
   }
-  adoptComponent(payload.component, { originLabel: 'src/', origin: 'src' });
 }
 
 /** Accept either a full export envelope or a bare component object. */
@@ -416,20 +462,20 @@ el.rawToggle.addEventListener('change', () => {
   if (state.rawMode) state.rawMessage = composedMessage();
   applyRawModeUi();
   syncRawBox();
-  render();
+  scheduleRefresh();
 });
 
 el.message.addEventListener('input', () => {
   if (!state.rawMode) return;
   state.rawMessage = el.message.value;
-  render();
+  scheduleRefresh();
 });
 
 for (const [node, key] of [[el.before, 'before'], [el.after, 'after']]) {
   node.addEventListener('input', () => {
     state[key] = node.value;
     syncRawBox();
-    render();
+    scheduleRefresh();
   });
 }
 
@@ -447,7 +493,14 @@ el.fileInput.addEventListener('change', () => {
   if (el.fileInput.files?.[0]) loadFile(el.fileInput.files[0]);
   el.fileInput.value = '';
 });
-el.resetSrc.addEventListener('click', loadFromSrc);
+el.resetSrc.addEventListener('click', () => loadFromSrc({ reset: true }));
+$('[data-reload-component]').addEventListener('click', reloadComponent);
+$('[data-apply-changes]').addEventListener('click', applyChanges);
+autoRefresh.addEventListener('change', () => {
+  cancelRefresh();
+  loadVersion++;
+  if (autoRefresh.checked) scheduleRefresh();
+});
 
 // Drag & drop anywhere in the window.
 let dragDepth = 0;
@@ -484,7 +537,13 @@ $('[data-clear-log]').addEventListener('click', () => { state.logs = []; renderL
 // Live reload from the dev server — only when previewing src/.
 try {
   const es = new EventSource('/api/watch');
-  es.addEventListener('change', () => { if (state.origin === 'src') loadFromSrc(); });
+  es.addEventListener('change', () => {
+    if (state.origin === 'src') {
+      sourceDirty = true;
+      loadVersion++;
+      scheduleRefresh();
+    }
+  });
 } catch { /* no live reload */ }
 
 // Debug/automation hook.
@@ -501,7 +560,7 @@ window.__preview = {
       render();
     }
   },
-  reload: loadFromSrc,
+  reload: reloadComponent,
   host,
 };
 

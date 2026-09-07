@@ -28,6 +28,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripHtmlComments, stripCssComments, stripJavaScriptComments } from './strip-comments.mjs';
 import { renameJavaScriptIdentifiers, readRenameOptions } from './rename-identifiers.mjs';
+import { DSL_EXECUTION_LIMIT, splitDslStatements } from './dsl-statements.mjs';
+import { applyWorkshopFieldStripping } from './workshop-import.mjs';
 
 const PROJECT = path.resolve(process.argv[2] || process.cwd());
 
@@ -38,7 +40,8 @@ const LIMITS = {
   aiPrompt: 1000,
   source: 20000, // html + css + script combined
   dslCss: 1000, // DSL mode flattens CSS to inline styles, reading only this much
-  dslCalls: 32, // DSL mode parses at most this many bridge calls
+  dslCalls: 32, // Mode validation window; separate from the execution limit.
+  dslExecutionCalls: DSL_EXECUTION_LIMIT,
 };
 
 // Component name charset, matching the runtime's own regex:
@@ -116,6 +119,7 @@ async function buildScript(esbuild, SRC, renameOptions) {
       format: 'iife',
       target: 'es2017',
       minify: true,
+      charset: 'utf8', // Preserve dense Unicode payloads instead of six-char escapes.
       platform: 'browser',
       write: false,
       legalComments: 'none',
@@ -161,6 +165,9 @@ function validate(component) {
 function analyseMode(component) {
   const { html, css, script } = component;
   const warnings = [];
+  const imported = applyWorkshopFieldStripping(component);
+  if (imported.script !== script) warnings.push('Workshop import strips comment-like text from this script. Regex literals are not protected; use a RegExp string where needed.');
+  if (imported.css !== css) warnings.push('Workshop import strips comment-like text even inside CSS strings. Escape literal slash characters where needed.');
 
   let mode;
   let reason;
@@ -233,11 +240,11 @@ function analyseMode(component) {
     if (script) {
       warnings.push('DSL scripts run on CLICK, not on mount. Use src/script.ts to run on render.');
     }
-    if (statements.length > LIMITS.dslCalls) {
+    const executionCount = splitDslStatements(script).length;
+    if (executionCount > LIMITS.dslExecutionCalls) {
       warnings.push(
-        `script has ${statements.length} statements but DSL validation inspects only the first ` +
-          `${LIMITS.dslCalls}. Whether the rest execute cannot be confirmed from the reachable ` +
-          'runtime code — do not rely on it.',
+        `script has ${executionCount} statements but production DSL executes only the first ` +
+          `${LIMITS.dslExecutionCalls}; the rest are silently skipped. The ${LIMITS.dslCalls}-statement mode validation window is not an execution budget.`,
       );
     }
   }
