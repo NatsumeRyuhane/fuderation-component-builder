@@ -29,7 +29,9 @@ forgettable box that skill warns against.
 type contract, then style the component however the storyline demands. That
 keeps a set piece from clashing with the page around it without flattening it
 into site chrome. §2's wrapper-alias rule is the part worth stealing
-regardless of aesthetic; everything from §7 onward is opinion.
+regardless of aesthetic, and §3's warning about the grey accent applies to
+any component that borrows the site's tokens; everything from §8 onward is
+opinion.
 
 Nothing here is loaded automatically. `src/` does not depend on it, and a
 component that ignores this file entirely is not doing anything wrong.
@@ -44,12 +46,18 @@ identifiers.
 
 | File | Tier | Counted size |
 |---|---|---|
-| [`assets/site-native/tokens.css`](assets/site-native/tokens.css) | iframe | 1993 |
-| [`assets/site-native/patterns.css`](assets/site-native/patterns.css) | iframe | 5473 |
-| [`assets/site-native/dsl-core.css`](assets/site-native/dsl-core.css) | DSL | 220 |
+| [`assets/site-native/tokens.css`](assets/site-native/tokens.css) | iframe | 3834 |
+| [`assets/site-native/patterns.css`](assets/site-native/patterns.css) | iframe | 16989 |
+| [`assets/site-native/dsl-core.css`](assets/site-native/dsl-core.css) | DSL | 270 |
 
 "Counted size" is after the build strips comments — the number that actually
-spends budget. Comments are free; whitespace is not (see §6).
+spends budget. Comments are free; whitespace is not (§7).
+
+**Sources.** Token values, palette and skin behaviour were read from the live
+`main-CXuixjDb.css` (sha256 `6936dbcc…`, 495992 bytes — the same build
+`vendor/runtime.lock.json` pins, verified by hash). Behavioural claims about
+the flattener are verified against `vendor/storyComponents.js`; the functions
+named below (`Ce`, `ve`, `k`, `be`, `Q`) are the real minified identifiers.
 
 ---
 
@@ -61,12 +69,13 @@ Everything below follows from one asymmetry.
 |---|---|---|
 | Host | `.story-inline-component`, inside `.markdown-body`, inside the message | `srcdoc` iframe, opaque origin |
 | Site `:root` tokens | **visible** — same document | **absent** — nothing crosses the boundary |
+| Site skin rules (§4) | **apply to your elements** | **inert** |
 | Inherited type | prose: 14–15px / 1.75 / `--tw-prose-body` | **nothing**; only a margin+`box-sizing` reset |
 | Webfont (Inter) | inherited from the page | unavailable — CSP `font-src: data:` |
 | Your CSS | flattened into inline `style` attributes | a real stylesheet |
 
-So in DSL mode the component is *already* in the design system and mostly needs
-to stop fighting it. In iframe mode the component is on bare metal and has to
+So in DSL mode the component is *already* inside the design system and mostly
+needs to stop fighting it. In iframe mode it is on bare metal and has to
 restate the contract from scratch.
 
 ## 2. The alias rule
@@ -76,88 +85,109 @@ Declare tokens **on the component's own wrapper**, never on `:root`:
 ```css
 .sn {
   --sn-ink: var(--text-primary, 30 41 59);
-  --sn-accent: var(--color-primary-500, 82 82 91);
+  --sn-surface: var(--bg-elevated, 255 255 255);
 }
 ```
 
 Two reasons, both mechanical:
 
 - A scriptless component whose CSS matches `html`, `body` or `:root` is forced
-  into iframe mode (regex `Q`). A `:root` token block silently changes your
+  into iframe mode (regex `Q`). A `:root` token block silently changes the
   render mode.
 - DSL mode never emits a `<style>` element. It runs each selector through
   `querySelectorAll` and merges the declarations into matching elements'
   inline `style`. A `:root` rule matches nothing and vanishes. A `.sn` rule
-  lands on the wrapper as inline custom properties, which children inherit
-  normally.
-
-The `var(--site-token, default)` shape is what makes one file work in both
-modes: in DSL mode the site token wins and the component tracks the live
-storyline theme; in iframe mode the fallback wins. Verified — this is the
-flattened output of the `stat-card` example:
-
-```html
-<div class="sn" style="--nk:var(--bg-sunken,241 245 249);--na:var(--color-primary-500,82 82 91);…">
-  <div class="sn-card" style="background:rgb(var(--nk));border:1px solid rgb(var(--nl));…">
-```
+  lands on the wrapper as inline custom properties, which children inherit.
 
 Custom properties and `var()` both survive the declaration filter (`Ce` admits
 `^--[A-Za-z0-9_-]{1,64}$`; `ve` rejects only `javascript:`, `expression(`,
-`@import` and over-256-char values).
+`@import` and over-256-char values). Verified — the flattened `stat-card`:
 
-## 3. Colour
-
-Colours are **space-separated RGB triples**, consumed as `rgb(var(--x) / a)`.
-That is the site's own convention and it is what makes alpha tints possible.
-
-| Alias | Site token | Default |
-|---|---|---|
-| `--sn-surface` | `--bg-elevated` | `255 255 255` |
-| `--sn-surface-sunken` | `--bg-sunken` | `241 245 249` |
-| `--sn-surface-app` | `--bg-app` | `248 250 252` |
-| `--sn-ink-strong` | `--text-strong` | `15 23 42` |
-| `--sn-ink` | `--text-primary` | `30 41 59` |
-| `--sn-ink-muted` | `--text-secondary` | `71 85 105` |
-| `--sn-ink-faint` | `--text-tertiary` | `148 163 184` |
-| `--sn-ink-on-accent` | `--text-on-brand` | `255 255 255` |
-| `--sn-accent-soft` | `--color-primary-100` | `228 228 231` |
-| `--sn-accent-muted` | `--color-primary-300` | `161 161 170` |
-| `--sn-accent` | `--color-primary-500` | `82 82 91` |
-| `--sn-accent-strong` | `--color-primary-700` | `39 39 42` |
-
-**Hairlines are the exception.** `--border-subtle`, `--border-default` and
-`--border-strong` already carry their own alpha (`0 0 0 / .06`), so they are
-used as `rgb(var(--sn-line))` with **no** trailing slash. `rgb(var(--sn-line) / .5)`
-is invalid and drops the whole declaration.
-
-### Tint, don't pick
-
-A container background of `rgb(var(--sn-accent) / .04)` reads as part of the
-theme; `#f6f5fc` reads as a foreign box that happens to match today's theme.
-Under an indigo theme the tint is lavender, under a crimson one it is blush,
-and neither needed a second rule. Prefer accent-alpha over fixed greys for any
-surface that should feel owned by the storyline.
-
-### The accent default is deliberately quiet
-
-`--color-primary-*` is what a storyline theme overrides — the shipped default
-is a zinc ramp, which is why themed pages look indigo or crimson while the
-extracted stylesheet does not. **An iframe-mode component cannot see that
-override.** The defaults above are the shipped zinc ramp rather than a guessed
-indigo, because a neutral accent stays quiet under every theme while a
-hardcoded indigo actively clashes with half of them.
-
-When an iframe-mode component genuinely must match the theme, pass the colour
-in as a parameter and let the AI supply it:
-
-```css
-.sn { --sn-accent: $AccentRgb$; }   /* AI supplies e.g. 99 102 241 */
+```html
+<div class="sn" style="--nk:var(--bg-sunken,241 245 249);--na:59 130 246;…">
+  <div class="sn-card" style="background:rgb(var(--nk));border:1px solid rgb(var(--nl));…">
 ```
 
-Parameter values are inserted into CSS **raw**, not escaped — keep such a
-parameter to a documented, narrow shape and never interpolate free text.
+## 3. Colour: the site is many-coloured, not one-accented
 
-## 4. Type
+**The most important thing to get right, and the easiest to get wrong.**
+
+`--color-primary-*` ships as a **zinc ramp** and is never overridden anywhere
+in the stylesheet — there is exactly one definition of `--color-primary-500`
+in all 5548 rules. It themes the user's message bubble
+(`--bg-bubble-user: rgb(var(--color-primary-600))`) and very little else.
+
+The vivid look of the real settings panel and function menu does **not** come
+from an accent token. It comes from per-feature Tailwind hues applied
+element by element: an amber toggle next to a violet one next to a blue one, a
+wash-tinted icon tile per menu entry, tinted metric pills on a model card. A
+settings list is deliberately many-coloured.
+
+So a component that drives everything from `rgb(var(--color-primary-500))`
+renders **grey and anonymous** beside the real UI. That is the single failure
+mode this kit exists to prevent.
+
+The kit therefore ships:
+
+- `--sn-accent` — the chrome accent, **blue** (`59 130 246`), what the site
+  uses for the active nav item and the send button. The default for buttons,
+  focus rings and nav.
+- `--sn-theme` — `var(--color-primary-500, 82 82 91)`, the separate hook for
+  the few things that genuinely should follow the storyline's theme.
+- **14 hue classes** — `.sn-hue-blue`, `-indigo`, `-violet`, `-purple`,
+  `-pink`, `-red`, `-orange`, `-amber`, `-green`, `-emerald`, `-teal`,
+  `-cyan`, `-sky`, `-slate`. Each sets four variables on the element:
+
+  | Variable | Tailwind step | Used for |
+  |---|---|---|
+  | `--sn-h` | 500 | solid fills: toggle on, primary button, meter, dial arc |
+  | `--sn-h-ink` | 600 | glyphs and pill text |
+  | `--sn-h-tint` | 100 | pill backgrounds |
+  | `--sn-h-wash` | 50 | icon-tile backgrounds |
+
+  Put one on a row, tile, pill or card and every child follows. That is how
+  you get the real UI's texture rather than a monochrome panel.
+
+Structural colours stay on the site tokens, so they track the user's skin:
+surfaces (`--bg-elevated`/`--bg-sunken`), ink (`--text-*`), and hairlines.
+
+**Hairlines are the exception to the RGB-triple convention.**
+`--border-subtle`, `--border-default` and `--border-strong` already carry
+their own alpha (`0 0 0 / .06`), so they are used as `rgb(var(--sn-line))`
+with **no** trailing slash. `rgb(var(--sn-line) / .5)` is invalid and drops
+the whole declaration.
+
+## 4. Free skinning: the site's own `data-ui-*` system
+
+The client has a 22-axis skin system driven by attributes on `html`, with
+**hook classes any element can opt into**:
+
+| Hook class | Put it on |
+|---|---|
+| `.theme-surface-decorated` | panels and cards |
+| `.theme-list-item` | rows |
+| `.theme-button` | buttons |
+| `.theme-input` | inputs and selects |
+| `.theme-tab` | tab strips |
+| `.theme-badge-decorated` | pills |
+
+The axes include `data-ui-dialog`, `-button`, `-input`, `-list`, `-tab`,
+`-surface-style`, `-control-style`, `-navbar`, `-bubble`, `-pattern`,
+`-density`, `-motion` — values like `glass`, `brutal`, `luxury`, `storybook`,
+`technical`, `editorial`, `pressed`, `ruled`.
+
+The rules are written `html[data-ui-list=brutal] .theme-list-item { … }`, i.e.
+plain descendant selectors. **In DSL mode your elements are in that document,
+so adding the hook class inherits whatever skin the user picked** — radius,
+shadow, border treatment and motion — for free. They set no colour or layout,
+so your own rules still apply on top.
+
+This is the cheapest way to look native, and the kit's patterns carry the
+hooks where they make sense. In iframe mode the classes are inert: harmless,
+but they do nothing, which is one more reason a DSL-mode component blends in
+more convincingly than an iframe one.
+
+## 5. Type
 
 The base is `--chat-message-font-size` (default 15px) at `line-height: 1.75`,
 in `--font-ui` (Inter first, then system stack).
@@ -184,7 +214,7 @@ Leaf scale, in `em` so it composes with the inherited base (do not nest these �
 same component therefore sets slightly differently in the two modes. This is
 not fixable; it is worth knowing before you blame your line-height.
 
-## 5. Space, radius, elevation, motion
+## 6. Space, radius, elevation, motion
 
 **Space is `em`, radius is `rem`.** Not an aesthetic preference:
 `--chat-message-font-size` is a user setting, so `em` padding grows with the
@@ -203,9 +233,9 @@ past `--sn-shadow-sm`; use a hairline before you reach for a shadow.
 Motion is `--duration-base` (.2s) on `--ease-out`
 (`cubic-bezier(.16, 1, .3, 1)`), `--duration-fast` (.15s) for pressed states.
 **Motion exists only in iframe mode** — DSL mode has no hover, focus or
-transition at all (§6).
+transition at all (§7).
 
-## 6. The DSL flattener: five verified constraints
+## 7. The DSL flattener: five verified constraints
 
 These are the ones that bite. All confirmed by running the real `be()`/`k()`
 logic from `storyComponents.js`.
@@ -257,60 +287,85 @@ motion, no pseudo-element ornament. Carry state with an explicit class the
 script toggles. If the design needs any of that, put it in iframe mode
 (`(() => {})();` in `script.js` is the cheapest way) and use the full tier.
 
-## 7. Patterns
+## 8. Patterns
 
-[`patterns.css`](assets/site-native/patterns.css) is a **menu, not a
-bundle** — copy the blocks you use. Taken whole it costs 5473 of the 20000
-combined `html`+`css`+`script` budget, which is affordable but rarely
-necessary.
+[`patterns.css`](assets/site-native/patterns.css) is a **menu, not a bundle**.
+Taken whole it is 16989 of the 20000 combined `html`+`css`+`script` budget —
+enough to put even a small component over the ceiling on its own. Copy the
+blocks you use; the `choice-list` example does exactly that and lands at 5199.
 
 | Class | Use |
 |---|---|
 | `.sn` | Wrapper. Restates the prose contract (iframe only) and holds the tokens. |
-| `.sn-card` / `--plain` | Accent-tinted container / white elevated container. |
-| `.sn-head`, `.sn-title`, `.sn-meta` | Heading row. |
-| `.sn-list`, `.sn-option`, `.sn-option-idx` | Choice rows. |
-| `.sn-btn` + `--primary` / `--secondary` / `--ghost` | Buttons, `min-height: 2.75em` ≈ the 41px touch floor. |
-| `.sn-badge` / `--quiet` | Status pill. |
-| `.sn-field`, `.sn-label`, `.sn-input` | Form control. |
-| `.sn-kv`, `.sn-kv-k`, `.sn-kv-v` | Key/value rows. |
+| `.sn-sheet` / `--modal` | Panel; the modal variant uses the site's own deep shadow. |
+| `.sn-sheet-head`, `-icon`, `-title`, `-close` | Panel header. |
+| `.sn-group`, `.sn-group-label` | Titled section. |
+| `.sn-rows`, `.sn-row` + `--stack` / `--plain` | **The signature settings row**: hue-tinted surface, glyph, title, description, control. |
+| `.sn-row-icon`, `-main`, `-title`, `-desc`, `-ctl`, `-head` | Row parts. |
+| `.sn-hint` | Small grey advisory under a control. |
+| `.sn-pill` + `--solid` / `--quiet`, `.sn-pills` | Value and metric pills. |
+| `.sn-toggle` | Switch; on-state takes the row's hue. |
+| `.sn-slider`, `.sn-scale` | Range with end/middle labels underneath. |
+| `.sn-tiles`, `.sn-tile`, `-icon`, `-label` | Function-menu grid, auto-fit so it reflows instead of overflowing. |
+| `.sn-nav`, `.sn-nav-item` | Sidebar; active is a solid accent fill. |
+| `.sn-cards`, `.sn-card`, `.sn-card-title` | Model-picker card. |
+| `.sn-tabs`, `.sn-tab`, `.sn-panel` | Tabs. |
+| `.sn-btn` + `--primary` / `--soft` / `--secondary` / `--ghost` | Buttons, `min-height: 2.75em` ≈ the 41px touch floor. |
+| `.sn-field`, `.sn-label`, `.sn-input`, `.sn-select`, `.sn-select-wrap` | Form controls. |
+| `.sn-seg`, `.sn-step`, `.sn-check` | Segmented control, stepper, checkbox row. |
+| `.sn-dials`, `.sn-dial`, `-svg`, `-arc`, `-knob`, `-val`, `-cap` | 270° gauge, draggable. |
 | `.sn-bar`, `.sn-bar-fill` | Meter. |
-| `.sn-rule` | Divider matching `.markdown-body hr`. |
-| `.sn-code` | Inline code matching `.markdown-body code`, orange included. |
+| `.sn-kv`, `.sn-kv-k`, `.sn-kv-v` | Key/value rows. |
+| `.sn-choices`, `.sn-list`, `.sn-option`, `.sn-option-idx` | Story choice list. |
+| `.sn-table-wrap`, `.sn-table` | Table mirroring `.markdown-body table` exactly. |
+| `.sn-rule`, `.sn-code` | Divider and inline code, both mirroring the prose. |
+
+**Mirror the prose, don't reinvent it.** `.sn-table`, `.sn-rule` and
+`.sn-code` copy `.markdown-body`'s own values (8px/12px cells, `#d1d5db`
+borders, a `rgba(0,0,0,.04)` header, the `#ea580c` inline-code orange), so a
+table inside a component and one written in the message are indistinguishable.
 
 Two rules the runtime enforces for you, painfully, if you break them:
 
 - **One wrapper element, `width: 100%`, no fixed px width.** The runtime
   measures `root.firstElementChild` and scales the *entire* component down if
-  it overflows the bubble — everything becomes tiny at once. A bare list of
-  siblings measures wrong.
+  it overflows the bubble — everything becomes tiny at once.
 - **No horizontal overflow.** Long URLs, IDs and unbroken CJK runs trigger the
-  same downscale, which is why `.sn p/li/td` set `overflow-wrap: anywhere`.
-  That rule is load-bearing, not cosmetic.
+  same downscale, which is why `.sn p/li/td` set `overflow-wrap: anywhere` and
+  every grid is `auto-fit`. Wrap tables in `.sn-table-wrap`.
 
-The index in `.sn-option` is a real `<span>`, not `::marker` or `::before`,
-so the markup stays portable to DSL mode.
+## 9. Worked examples
 
-## 8. Worked examples
-
-Both build clean with no warnings (`node scripts/build.mjs <dir>`).
+Build any of them with `node scripts/build.mjs <dir>`.
 
 - [`examples/stat-card`](assets/site-native/examples/stat-card) — DSL tier,
-  scriptless. Lands in DSL mode at **632/1000 CSS chars**, token core
-  included, 368 spare. Sets no font-family: it inherits the prose.
+  scriptless. **DSL mode, 632/1000 CSS chars** with the token core included.
+  Sets no font-family: it inherits the prose.
 - [`examples/choice-list`](assets/site-native/examples/choice-list) — iframe
-  tier. The themed option list, **8729/20000** total, with hover, focus rings
-  and `fillInput` on click.
+  tier, **5199/20000**, taking only the kit blocks it uses.
+- [`src/`](../../../src) — the kitchen sink: settings rows with six hues,
+  toggles, a slider with scale and hint, stepper, segmented control, select,
+  checkboxes, a 12-tile function menu, three draggable dials, meters, model
+  cards with metric pills, a table, and four button variants. It is
+  **33621 chars — deliberately over the 20000 ceiling**, built to be looked at
+  in `npm run preview` rather than imported. `npm run build` fails it, by
+  design; trim to the blocks you need before shipping anything like it.
 
-## 9. Checklist
+## 10. Checklist
 
 - [ ] Tokens on the wrapper, never `:root`.
-- [ ] Every alias is `var(--site-token, default)`.
+- [ ] Every structural alias is `var(--site-token, default)`.
 - [ ] Colours as `rgb(var(--x) / a)`; hairlines without the slash.
-- [ ] Accent tints instead of fixed greys for themed surfaces.
+- [ ] **Not driven by `--color-primary`.** Hue classes carry the colour;
+      `--sn-accent` (blue) is the chrome default. A monochrome panel is the
+      tell that this went wrong.
+- [ ] Skin hooks (`.theme-list-item`, `.theme-button`, …) added where they
+      apply — free in DSL mode, inert in iframe.
 - [ ] DSL tier: no `font-family`, no base `font-size`, no hover, no motion,
       no data URIs, no `@media`, compact declarations.
 - [ ] iframe tier: restate font, size, leading and colour on `.sn`.
-- [ ] One wrapper, `width: 100%`, no fixed px width, no horizontal overflow.
+- [ ] One wrapper, `width: 100%`, no fixed px width, no horizontal overflow;
+      tables wrapped, grids `auto-fit`.
+- [ ] Only the pattern blocks actually used were copied.
 - [ ] `npm run build` reports the mode you intended and prints no warnings.
 - [ ] `npm run preview` at a narrow width — no downscale, no clipped CSS.

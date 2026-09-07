@@ -1,49 +1,34 @@
-/* Fuderation component design tokens — the alias layer.
+/* Site-native tokens — traced from the live chat.fuderation.com stylesheet
+ * (main-CXuixjDb.css, sha256 6936dbcc…, the same build vendor/ is pinned to).
  *
- * Scoped to the component wrapper (.sn), never to :root. Two reasons:
+ * Scoped to the component wrapper (.sn), never to :root:
  *   1. A scriptless component whose CSS targets html/body/:root is forced into
  *      iframe mode by the runtime (regex Q in storyComponents.js).
- *   2. DSL mode has no stylesheet at all — it flattens each rule onto the
- *      elements it matches. A :root rule would match nothing; a .sn rule lands
- *      on the wrapper as inline custom properties, which children inherit.
+ *   2. DSL mode has no stylesheet — it flattens each rule onto the elements it
+ *      matches. A :root rule matches nothing; a .sn rule lands on the wrapper
+ *      as inline custom properties, which children inherit.
  *
- * Every alias is var(--site-token, shipped-default). In DSL mode the component
- * lives in the host document, so the site token wins and the component follows
- * the live storyline theme. In iframe mode no host token crosses the frame
- * boundary, so the shipped default wins. Same file, both modes.
- *
- * Colours are space-separated RGB triples, used as rgb(var(--sn-x) / alpha) --
- * the site's own convention. The three --sn-line-* aliases are the exception:
- * they already carry their own alpha, so use rgb(var(--sn-line)) with no slash.
+ * Structural aliases are var(--site-token, default): in DSL mode the live site
+ * token wins, in iframe mode the default does.
  */
 
 .sn {
-  /* Surfaces */
+  /* ── Structure: real site tokens, so these track the user's skin ───────── */
   --sn-surface: var(--bg-elevated, 255 255 255);
   --sn-surface-sunken: var(--bg-sunken, 241 245 249);
   --sn-surface-app: var(--bg-app, 248 250 252);
 
-  /* Hairlines. Already alpha-qualified: rgb(var(--sn-line)), never / .5 */
+  /* Hairlines already carry their own alpha: rgb(var(--sn-line)), no slash. */
   --sn-line-subtle: var(--border-subtle, 0 0 0 / .06);
   --sn-line: var(--border-default, 0 0 0 / .1);
   --sn-line-strong: var(--border-strong, 0 0 0 / .16);
 
-  /* Ink */
   --sn-ink-strong: var(--text-strong, 15 23 42);
   --sn-ink: var(--text-primary, 30 41 59);
   --sn-ink-muted: var(--text-secondary, 71 85 105);
   --sn-ink-faint: var(--text-tertiary, 148 163 184);
   --sn-ink-on-accent: var(--text-on-brand, 255 255 255);
 
-  /* Accent ramp. The storyline theme overrides --color-primary-* wholesale;
-   * the defaults here are the site's shipped zinc ramp, which stays quiet
-   * under any theme rather than fighting it. See SITE_NATIVE_KIT.md. */
-  --sn-accent-soft: var(--color-primary-100, 228 228 231);
-  --sn-accent-muted: var(--color-primary-300, 161 161 170);
-  --sn-accent: var(--color-primary-500, 82 82 91);
-  --sn-accent-strong: var(--color-primary-700, 39 39 42);
-
-  /* Radii — rem, so they match the site's chrome at any message font size */
   --sn-r-xs: var(--radius-xs, .25rem);
   --sn-r-sm: var(--radius-sm, .375rem);
   --sn-r-md: var(--radius-md, .5rem);
@@ -52,25 +37,20 @@
   --sn-r-2xl: var(--radius-2xl, 1.25rem);
   --sn-r-full: var(--radius-full, 9999px);
 
-  /* Elevation */
   --sn-shadow-xs: var(--shadow-xs, 0 1px 2px rgb(0 0 0 / .04));
   --sn-shadow-sm: var(--shadow-sm, 0 1px 3px rgb(0 0 0 / .06), 0 1px 2px rgb(0 0 0 / .04));
   --sn-shadow-md: var(--shadow-md, 0 4px 8px rgb(0 0 0 / .06), 0 2px 4px rgb(0 0 0 / .04));
   --sn-shadow-lg: var(--shadow-lg, 0 12px 24px rgb(0 0 0 / .08), 0 4px 8px rgb(0 0 0 / .04));
+  /* The site's modal shadow is its own value, not one of the four above. */
+  --sn-shadow-modal: 0 25px 50px -12px rgba(0, 0, 0, .25);
 
-  /* Motion */
   --sn-ease: var(--ease-out, cubic-bezier(.16, 1, .3, 1));
   --sn-dur-fast: var(--duration-fast, .15s);
   --sn-dur: var(--duration-base, .2s);
 
-  /* Type. Inter is a webfont on the host page, so DSL-mode components get it
-   * and iframe-mode ones cannot (CSP font-src is data: only) — the stack falls
-   * through to system-ui there. Expect a small type difference between modes. */
   --sn-font: var(--font-ui, Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif);
   --sn-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
-  /* Spacing — em, so the component breathes with --chat-message-font-size
-   * (a user setting) instead of drifting out of scale with the prose. */
   --sn-space-1: .25em;
   --sn-space-2: .375em;
   --sn-space-3: .5em;
@@ -78,4 +58,50 @@
   --sn-space-5: 1em;
   --sn-space-6: 1.25em;
   --sn-space-7: 1.75em;
+
+  /* ── Colour ────────────────────────────────────────────────────────────
+   * The site does NOT drive its chrome from one accent. --color-primary-* is
+   * a zinc ramp in the shipped stylesheet and is never overridden in CSS —
+   * it themes the message bubble (--bg-bubble-user) and little else. The
+   * vivid look of the menus and settings comes from per-feature Tailwind
+   * hues: a tinted icon tile, a coloured toggle, a tinted metric pill.
+   *
+   * So: --sn-accent is the chrome accent (blue, what the site uses for the
+   * active nav item and the send button), and --sn-theme is the separate
+   * hook for anything that should follow the storyline's own theme. Using
+   * --color-primary as a component's only accent is what makes a component
+   * look grey and anonymous next to the real UI. */
+  --sn-accent: 59 130 246;
+  --sn-accent-ink: 37 99 235;
+  --sn-accent-tint: 219 234 254;
+  --sn-accent-wash: 239 246 255;
+  --sn-theme: var(--color-primary-500, 82 82 91);
+  --sn-theme-ink: var(--color-primary-700, 39 39 42);
+
+  /* Default hue for any element carrying a .sn-hue-* consumer but no hue
+   * class. Set --sn-h / --sn-h-ink / --sn-h-tint / --sn-h-wash to reskin. */
+  --sn-h: var(--sn-accent);
+  --sn-h-ink: var(--sn-accent-ink);
+  --sn-h-tint: var(--sn-accent-tint);
+  --sn-h-wash: var(--sn-accent-wash);
 }
+
+/* ── Semantic hues ───────────────────────────────────────────────────────
+ * Tailwind's 500 / 600 / 100 / 50, read out of the live stylesheet. Put one
+ * of these on a row, tile, pill or toggle; every child picks it up.
+ * The site assigns them per feature, not per component — a settings list is
+ * deliberately many-coloured. */
+.sn-hue-blue    { --sn-h: 59 130 246;  --sn-h-ink: 37 99 235;   --sn-h-tint: 219 234 254; --sn-h-wash: 239 246 255; }
+.sn-hue-indigo  { --sn-h: 99 102 241;  --sn-h-ink: 79 70 229;   --sn-h-tint: 224 231 255; --sn-h-wash: 238 242 255; }
+.sn-hue-violet  { --sn-h: 139 92 246;  --sn-h-ink: 124 58 237;  --sn-h-tint: 237 233 254; --sn-h-wash: 245 243 255; }
+.sn-hue-purple  { --sn-h: 168 85 247;  --sn-h-ink: 147 51 234;  --sn-h-tint: 243 232 255; --sn-h-wash: 250 245 255; }
+.sn-hue-pink    { --sn-h: 236 72 153;  --sn-h-ink: 219 39 119;  --sn-h-tint: 252 231 243; --sn-h-wash: 253 242 248; }
+.sn-hue-red     { --sn-h: 239 68 68;   --sn-h-ink: 220 38 38;   --sn-h-tint: 254 226 226; --sn-h-wash: 254 242 242; }
+.sn-hue-orange  { --sn-h: 249 115 22;  --sn-h-ink: 234 88 12;   --sn-h-tint: 255 237 213; --sn-h-wash: 255 247 237; }
+.sn-hue-amber   { --sn-h: 245 158 11;  --sn-h-ink: 217 119 6;   --sn-h-tint: 254 243 199; --sn-h-wash: 255 251 235; }
+.sn-hue-green   { --sn-h: 34 197 94;   --sn-h-ink: 22 163 74;   --sn-h-tint: 220 252 231; --sn-h-wash: 240 253 244; }
+.sn-hue-emerald { --sn-h: 16 185 129;  --sn-h-ink: 5 150 105;   --sn-h-tint: 209 250 229; --sn-h-wash: 236 253 245; }
+.sn-hue-teal    { --sn-h: 20 184 166;  --sn-h-ink: 13 148 136;  --sn-h-tint: 204 251 241; --sn-h-wash: 240 253 250; }
+.sn-hue-cyan    { --sn-h: 6 182 212;   --sn-h-ink: 8 145 178;   --sn-h-tint: 207 250 254; --sn-h-wash: 236 254 255; }
+.sn-hue-sky     { --sn-h: 14 165 233;  --sn-h-ink: 2 132 199;   --sn-h-tint: 224 242 254; --sn-h-wash: 240 249 255; }
+.sn-hue-slate   { --sn-h: 100 116 139; --sn-h-ink: 71 85 105;   --sn-h-tint: 241 245 249; --sn-h-wash: 248 250 252; }

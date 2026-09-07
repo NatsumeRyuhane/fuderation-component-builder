@@ -1,86 +1,380 @@
-/* Fuderation component patterns — iframe tier.
+/* Site-native patterns — iframe tier.
  *
- * Assumes iframe mode: a real stylesheet, working :hover/:focus, no 1000-char
- * cap. Pair with tokens.css. In DSL mode most of this silently degrades (no
- * hover, no transitions, no pseudo-elements) — use dsl-core.css and hand-write
- * a flat subset instead.
+ * Traced from the live client's settings modal, function menu, model picker
+ * and markdown renderer. Pair with tokens.css.
  *
- * Nothing here sets a fixed pixel width. The runtime measures the wrapper's
- * first child and scales the WHOLE component down if it overflows the bubble,
- * so width:100% + border-box is the only safe posture.
+ * The organising idea, taken from the real UI: information is presented as a
+ * stack of SOFT TINTED ROWS, each carrying a coloured glyph, a title, a
+ * description and one control on the right. Colour is assigned per feature,
+ * not per component — a settings list is deliberately many-coloured. Put a
+ * .sn-hue-* class on the row and its icon, pill and toggle all follow.
+ *
+ * ── In DSL mode, add the site's own skin hooks ──────────────────────────
+ * A DSL-mode component lives in the host document, so the site's skin rules
+ * apply to it directly. Adding these classes alongside ours inherits the
+ * USER'S chosen skin (glass, brutal, luxury, storybook, …) for free:
+ *   .theme-surface-decorated  panels      .theme-button  buttons
+ *   .theme-list-item          rows        .theme-input   fields
+ *   .theme-tab                tabs        .theme-badge-decorated  pills
+ * They set radius, shadow, border treatment and motion from html[data-ui-*];
+ * they do not set colour or layout, so ours still applies. In iframe mode
+ * they are inert — harmless, but they do nothing.
  */
 
 /* ── Base ────────────────────────────────────────────────────────────────
- * The iframe inherits nothing from the page: no font, no colour, no leading.
- * This block restates the chat prose contract so the component reads as one
- * more paragraph of the message rather than a foreign object. 15px/1.75 are
- * the site's own defaults for --chat-message-font-size and .markdown-body.
- * Do NOT copy this block into a DSL-mode component — there it would override
- * the prose sizing it is meant to imitate. */
+ * The iframe inherits nothing: no font, no colour, no leading. This restates
+ * the chat prose contract (15px / 1.75 are the site's own defaults). Drop
+ * this block in a DSL-mode component, where it would override the prose. */
 .sn {
   width: 100%;
   box-sizing: border-box;
   font-family: var(--sn-font);
   font-size: 15px;
-  line-height: 1.75;
+  line-height: 1.6;
   color: rgb(var(--sn-ink));
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
-.sn *,
-.sn *::before,
-.sn *::after { box-sizing: inherit; }
+.sn *, .sn *::before, .sn *::after { box-sizing: inherit; }
+.sn p, .sn li, .sn td { overflow-wrap: anywhere; word-break: break-word; }
 
-/* Long unbroken strings (URLs, IDs, CJK runs) are the most common cause of the
- * runtime's auto-downscale. Wrapping is not cosmetic here, it is load-bearing. */
-.sn p,
-.sn li,
-.sn td { overflow-wrap: anywhere; word-break: break-word; }
-
-/* ── Card ────────────────────────────────────────────────────────────────
- * The tinted container. The wash is the accent at 4% rather than a fixed grey,
- * which is why it reads as "part of the theme" instead of "a grey box": under
- * an indigo theme it is lavender, under a crimson one it is blush. */
-.sn-card {
-  background: rgb(var(--sn-accent) / .04);
+/* ── Sheet: the panel a settings or menu view lives in ──────────────────
+ * The site's modal is plain white at radius 16 with its own deep shadow —
+ * not one of the four --shadow-* steps. */
+.sn-sheet {
+  background: rgb(var(--sn-surface));
   border: 1px solid rgb(var(--sn-line-subtle));
   border-radius: var(--sn-r-xl);
+  box-shadow: var(--sn-shadow-sm);
   padding: var(--sn-space-5);
 }
-.sn-card--plain {
-  background: rgb(var(--sn-surface));
-  box-shadow: var(--sn-shadow-sm);
-}
+.sn-sheet--modal { box-shadow: var(--sn-shadow-modal); border-radius: 16px; }
 
-/* ── Heading ─────────────────────────────────────────────────────────── */
-.sn-head {
+.sn-sheet-head {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  align-items: center;
   gap: var(--sn-space-3);
-  margin-bottom: var(--sn-space-4);
+  margin-bottom: var(--sn-space-5);
 }
-.sn-title {
-  font-size: .9375em;
-  font-weight: 600;
+.sn-sheet-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 1.6em;
+  height: 1.6em;
+  font-size: 1em;
+  color: rgb(var(--sn-h-ink));
+}
+.sn-sheet-title {
+  font-size: 1.0625em;
+  font-weight: 700;
   color: rgb(var(--sn-ink-strong));
-  letter-spacing: -.01em;
 }
-.sn-meta {
+.sn-sheet-close {
+  margin-left: auto;
+  width: 1.9em;
+  height: 1.9em;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--sn-r-md);
+  background: transparent;
+  color: rgb(var(--sn-ink-faint));
+  font: inherit;
+  font-size: 1em;
+  cursor: pointer;
+  transition: background-color var(--sn-dur) var(--sn-ease);
+}
+.sn-sheet-close:hover { background: rgb(var(--sn-surface-sunken)); color: rgb(var(--sn-ink)); }
+
+/* ── Group + section label ─────────────────────────────────────────────── */
+.sn-group { margin-bottom: var(--sn-space-6); }
+.sn-group:last-child { margin-bottom: 0; }
+.sn-group-label {
+  margin-bottom: var(--sn-space-3);
   font-size: .8125em;
+  font-weight: 500;
   color: rgb(var(--sn-ink-faint));
 }
 
-/* ── Option list ─────────────────────────────────────────────────────────
- * The choice rows the site renders under a story beat. */
-.sn-list {
+/* ── Row: the signature settings pattern ────────────────────────────────
+ * A soft tinted surface, no border. The tint is the row's hue at 5%, which
+ * is what gives the real settings list its faint lavender/amber cast rather
+ * than a uniform grey. */
+.sn-rows { display: flex; flex-direction: column; gap: var(--sn-space-3); }
+.sn-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sn-space-3);
+  padding: var(--sn-space-4) var(--sn-space-5);
+  background: rgb(var(--sn-h) / .05);
+  border-radius: var(--sn-r-lg);
+  transition: background-color var(--sn-dur) var(--sn-ease);
+}
+.sn-row--plain { background: rgb(var(--sn-surface-sunken) / .7); }
+.sn-row--stack { flex-direction: column; align-items: stretch; }
+.sn-row-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 1.5em;
+  height: 1.5em;
+  font-size: 1.0625em;
+  line-height: 1;
+  color: rgb(var(--sn-h-ink));
+}
+.sn-row-main { flex: 1; min-width: 0; }
+.sn-row-title {
+  font-size: .9375em;
+  font-weight: 600;
+  color: rgb(var(--sn-ink-strong));
+}
+.sn-row-desc {
+  margin-top: .15em;
+  font-size: .8125em;
+  line-height: 1.5;
+  color: rgb(var(--sn-ink-muted));
+}
+.sn-row-ctl { flex: none; display: flex; align-items: center; gap: var(--sn-space-3); }
+.sn-row-head { display: flex; align-items: center; gap: var(--sn-space-3); }
+
+/* Small grey advisory under a control, as the site puts under its sliders. */
+.sn-hint {
+  margin-top: var(--sn-space-2);
+  font-size: .75em;
+  color: rgb(var(--sn-ink-faint));
+}
+
+/* ── Pill ────────────────────────────────────────────────────────────────
+ * Tinted background, saturated ink. The model picker stacks several of these
+ * to carry metrics; the settings rows use one to carry a current value. */
+.sn-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: .3em;
+  padding: .2em .6em;
+  border-radius: var(--sn-r-full);
+  background: rgb(var(--sn-h-tint));
+  color: rgb(var(--sn-h-ink));
+  font-size: .75em;
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.sn-pill--solid { background: rgb(var(--sn-h)); color: #fff; }
+.sn-pill--quiet {
+  background: rgb(var(--sn-surface-sunken));
+  color: rgb(var(--sn-ink-muted));
+}
+.sn-pills { display: flex; flex-wrap: wrap; gap: var(--sn-space-2); }
+
+/* ── Toggle ─────────────────────────────────────────────────────────────
+ * 44×24 at the 15px base. Off is a neutral track; on is the row's hue, which
+ * is why the real settings list shows amber, purple and blue switches in one
+ * column. State lives in aria-checked. */
+.sn-toggle {
+  flex: none;
+  position: relative;
+  width: 2.75em;
+  height: 1.5em;
+  padding: 0;
+  border: 0;
+  border-radius: var(--sn-r-full);
+  background: rgb(var(--sn-line-strong));
+  cursor: pointer;
+  transition: background-color var(--sn-dur) var(--sn-ease);
+}
+.sn-toggle::after {
+  content: "";
+  position: absolute;
+  top: .175em;
+  left: .175em;
+  width: 1.15em;
+  height: 1.15em;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / .2);
+  transition: transform var(--sn-dur) var(--sn-ease);
+}
+.sn-toggle[aria-checked="true"] { background: rgb(var(--sn-h)); }
+.sn-toggle[aria-checked="true"]::after { transform: translateX(1.25em); }
+.sn-toggle:focus-visible { outline: 2px solid rgb(var(--sn-h) / .5); outline-offset: 2px; }
+
+/* ── Slider + scale ─────────────────────────────────────────────────────
+ * The site labels the ends and the middle of a slider underneath it. The two
+ * thumb pseudo-elements cannot share a rule: a selector list containing an
+ * unknown pseudo-element is dropped whole, so -webkit- and -moz- are split. */
+.sn-slider {
+  width: 100%;
+  height: 1.5em;
+  margin: var(--sn-space-3) 0 0;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+.sn-slider::-webkit-slider-runnable-track {
+  height: .3em; border-radius: var(--sn-r-full);
+  background: rgb(var(--sn-line-strong) );
+}
+.sn-slider::-moz-range-track {
+  height: .3em; border-radius: var(--sn-r-full);
+  background: rgb(var(--sn-line-strong));
+}
+.sn-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 1.2em; height: 1.2em; margin-top: -.45em;
+  border: 1px solid rgb(var(--sn-line));
+  border-radius: 50%; background: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / .18);
+}
+.sn-slider::-moz-range-thumb {
+  width: 1.2em; height: 1.2em;
+  border: 1px solid rgb(var(--sn-line));
+  border-radius: 50%; background: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / .18);
+}
+.sn-slider:focus-visible { outline: 2px solid rgb(var(--sn-h) / .5); outline-offset: 4px; }
+.sn-scale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--sn-space-1);
+  font-size: .75em;
+  color: rgb(var(--sn-ink-faint));
+}
+
+/* ── Tile grid: the function menu ───────────────────────────────────────
+ * A rounded-square wash tile with a saturated glyph, label underneath. The
+ * grid is auto-fit so it reflows from four columns to two in a narrow
+ * bubble instead of overflowing and triggering the runtime's downscale. */
+.sn-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(4.5em, 1fr));
+  gap: var(--sn-space-4) var(--sn-space-2);
+}
+.sn-tile {
   display: flex;
   flex-direction: column;
-  gap: var(--sn-space-3);
-  margin: 0;
+  align-items: center;
+  gap: var(--sn-space-2);
   padding: 0;
-  list-style: none;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
 }
+.sn-tile-icon {
+  display: grid;
+  place-items: center;
+  width: 3em;
+  height: 3em;
+  border-radius: var(--sn-r-xl);
+  background: rgb(var(--sn-h-wash));
+  color: rgb(var(--sn-h-ink));
+  font-size: 1.0625em;
+  line-height: 1;
+  transition: transform var(--sn-dur) var(--sn-ease),
+              background-color var(--sn-dur) var(--sn-ease);
+}
+.sn-tile:hover .sn-tile-icon { transform: translateY(-2px); background: rgb(var(--sn-h-tint)); }
+.sn-tile-label {
+  font-size: .75em;
+  color: rgb(var(--sn-ink-muted));
+  text-align: center;
+}
+
+/* ── Nav: the settings sidebar ──────────────────────────────────────────
+ * Active is a solid fill in the accent with white text — the one place the
+ * real UI uses a saturated block rather than a tint. */
+.sn-nav { display: flex; flex-direction: column; gap: var(--sn-space-1); }
+.sn-nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sn-space-3);
+  padding: var(--sn-space-3) var(--sn-space-4);
+  border: 0;
+  border-radius: var(--sn-r-md);
+  background: transparent;
+  color: rgb(var(--sn-ink-muted));
+  font: inherit;
+  font-size: .875em;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--sn-dur) var(--sn-ease);
+}
+.sn-nav-item:hover { background: rgb(var(--sn-surface-sunken)); }
+.sn-nav-item[aria-current="true"] {
+  background: rgb(var(--sn-accent));
+  color: #fff;
+  font-weight: 600;
+}
+
+/* ── Card: the model-picker card ────────────────────────────────────── */
+.sn-card {
+  padding: var(--sn-space-4);
+  background: rgb(var(--sn-surface));
+  border: 1px solid rgb(var(--sn-line-subtle));
+  border-radius: var(--sn-r-lg);
+  transition: border-color var(--sn-dur) var(--sn-ease),
+              box-shadow var(--sn-dur) var(--sn-ease);
+}
+.sn-card:hover { border-color: rgb(var(--sn-line)); box-shadow: var(--sn-shadow-xs); }
+.sn-card-title {
+  margin-bottom: var(--sn-space-3);
+  font-size: .9375em;
+  font-weight: 600;
+  color: rgb(var(--sn-ink-strong));
+}
+.sn-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10em, 1fr));
+  gap: var(--sn-space-3);
+}
+
+/* ── Tabs ────────────────────────────────────────────────────────────── */
+.sn-tabs {
+  display: flex;
+  gap: var(--sn-space-1);
+  padding: var(--sn-space-1);
+  margin-bottom: var(--sn-space-5);
+  background: rgb(var(--sn-surface-sunken));
+  border-radius: var(--sn-r-md);
+}
+.sn-tab {
+  flex: 1;
+  min-height: 2.25em;
+  border: 0;
+  border-radius: var(--sn-r-sm);
+  background: transparent;
+  color: rgb(var(--sn-ink-muted));
+  font: inherit;
+  font-size: .8125em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--sn-dur) var(--sn-ease), color var(--sn-dur) var(--sn-ease);
+}
+.sn-tab:hover { color: rgb(var(--sn-ink)); }
+.sn-tab.is-on {
+  background: rgb(var(--sn-surface));
+  color: rgb(var(--sn-ink-strong));
+  box-shadow: var(--sn-shadow-xs);
+}
+.sn-panel { display: block; }
+.sn-panel[hidden] { display: none; }
+
+/* ── Choice list ─────────────────────────────────────────────────────────
+ * The rows the site renders under a story beat: a wash-tinted container of
+ * white rows. The index is a real <span>, not ::marker or ::before, so the
+ * markup stays portable to DSL mode where pseudo-elements never apply. */
+.sn-choices {
+  padding: var(--sn-space-4);
+  background: rgb(var(--sn-h) / .04);
+  border: 1px solid rgb(var(--sn-line-subtle));
+  border-radius: var(--sn-r-xl);
+}
+.sn-list { display: flex; flex-direction: column; gap: var(--sn-space-3); margin: 0; padding: 0; list-style: none; }
 .sn-option {
   display: flex;
   gap: var(--sn-space-3);
@@ -90,7 +384,7 @@
   background: rgb(var(--sn-surface));
   border: 1px solid rgb(var(--sn-line-subtle));
   border-radius: var(--sn-r-lg);
-  color: rgb(var(--sn-accent-strong));
+  color: rgb(var(--sn-h-ink));
   font: inherit;
   font-size: .9375em;
   font-weight: 500;
@@ -99,30 +393,13 @@
               box-shadow var(--sn-dur) var(--sn-ease),
               transform var(--sn-dur-fast) var(--sn-ease);
 }
-.sn-option:hover {
-  border-color: rgb(var(--sn-accent) / .35);
-  box-shadow: var(--sn-shadow-sm);
-}
+.sn-option:hover { border-color: rgb(var(--sn-h) / .35); box-shadow: var(--sn-shadow-sm); }
 .sn-option:active { transform: translateY(1px); }
-.sn-option:focus-visible {
-  outline: 2px solid rgb(var(--sn-accent) / .5);
-  outline-offset: 2px;
-}
-.sn-option[aria-disabled="true"],
-.sn-option:disabled {
-  color: rgb(var(--sn-ink-faint));
-  cursor: default;
-  pointer-events: none;
-}
-/* The index is a sibling element, not ::marker — DSL mode cannot style
- * pseudo-elements at all, so keeping it real makes the markup portable. */
-.sn-option-idx {
-  flex: none;
-  font-variant-numeric: tabular-nums;
-  color: rgb(var(--sn-accent) / .7);
-}
+.sn-option:focus-visible { outline: 2px solid rgb(var(--sn-h) / .5); outline-offset: 2px; }
+.sn-option[aria-disabled="true"], .sn-option:disabled { color: rgb(var(--sn-ink-faint)); cursor: default; pointer-events: none; }
+.sn-option-idx { flex: none; font-variant-numeric: tabular-nums; color: rgb(var(--sn-h) / .7); }
 
-/* ── Buttons ─────────────────────────────────────────────────────────────
+/* ── Buttons ───────────────────────────────────────────────────────────
  * min-height 2.75em ≈ 41px at the 15px base: the mobile touch-target floor. */
 .sn-btn {
   display: inline-flex;
@@ -140,62 +417,26 @@
   transition: background-color var(--sn-dur) var(--sn-ease),
               border-color var(--sn-dur) var(--sn-ease);
 }
-.sn-btn--primary {
-  background: rgb(var(--sn-accent));
-  color: rgb(var(--sn-ink-on-accent));
-}
-.sn-btn--primary:hover { background: rgb(var(--sn-accent-strong)); }
+.sn-btn--primary { background: rgb(var(--sn-h)); color: #fff; }
+.sn-btn--primary:hover { background: rgb(var(--sn-h-ink)); }
+.sn-btn--soft { background: rgb(var(--sn-h-tint)); color: rgb(var(--sn-h-ink)); }
+.sn-btn--soft:hover { background: rgb(var(--sn-h) / .22); }
 .sn-btn--secondary {
   background: rgb(var(--sn-surface));
   border-color: rgb(var(--sn-line));
   color: rgb(var(--sn-ink));
 }
 .sn-btn--secondary:hover { border-color: rgb(var(--sn-line-strong)); }
-.sn-btn--ghost {
-  background: transparent;
-  color: rgb(var(--sn-accent-strong));
-}
-.sn-btn--ghost:hover { background: rgb(var(--sn-accent) / .08); }
-.sn-btn:focus-visible {
-  outline: 2px solid rgb(var(--sn-accent) / .5);
-  outline-offset: 2px;
-}
-.sn-btn:disabled {
-  opacity: .5;
-  cursor: default;
-  pointer-events: none;
-}
+.sn-btn--ghost { background: transparent; color: rgb(var(--sn-ink-muted)); }
+.sn-btn--ghost:hover { background: rgb(var(--sn-surface-sunken)); }
+.sn-btn:focus-visible { outline: 2px solid rgb(var(--sn-h) / .5); outline-offset: 2px; }
+.sn-btn:disabled { opacity: .45; cursor: default; pointer-events: none; }
+.sn-actions { display: flex; flex-wrap: wrap; gap: var(--sn-space-3); }
 
-/* ── Badge ───────────────────────────────────────────────────────────── */
-.sn-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sn-space-1);
-  padding: .125em var(--sn-space-3);
-  border-radius: var(--sn-r-full);
-  background: rgb(var(--sn-accent) / .1);
-  color: rgb(var(--sn-accent-strong));
-  font-size: .75em;
-  font-weight: 600;
-  white-space: nowrap;
-}
-.sn-badge--quiet {
-  background: rgb(var(--sn-surface-sunken));
-  color: rgb(var(--sn-ink-muted));
-}
-
-/* ── Field ───────────────────────────────────────────────────────────── */
-.sn-field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sn-space-2);
-}
-.sn-label {
-  font-size: .8125em;
-  font-weight: 600;
-  color: rgb(var(--sn-ink-muted));
-}
-.sn-input {
+/* ── Fields ────────────────────────────────────────────────────────────── */
+.sn-field { display: flex; flex-direction: column; gap: var(--sn-space-2); }
+.sn-label { font-size: .8125em; font-weight: 600; color: rgb(var(--sn-ink-muted)); }
+.sn-input, .sn-select {
   width: 100%;
   min-height: 2.75em;
   padding: var(--sn-space-3) var(--sn-space-4);
@@ -207,13 +448,147 @@
   color: rgb(var(--sn-ink));
 }
 .sn-input::placeholder { color: rgb(var(--sn-ink-faint)); }
-.sn-input:focus {
+.sn-input:focus, .sn-select:focus {
   outline: none;
-  border-color: rgb(var(--sn-accent) / .55);
-  box-shadow: 0 0 0 3px rgb(var(--sn-accent) / .12);
+  border-color: rgb(var(--sn-h) / .55);
+  box-shadow: 0 0 0 3px rgb(var(--sn-h) / .12);
+}
+.sn-select { padding-right: 2.5em; -webkit-appearance: none; appearance: none; cursor: pointer; }
+/* Chevron as a rotated border, so there is no data: URI — a semicolon inside
+ * a value would corrupt the whole rule if this were ever flattened by DSL. */
+.sn-select-wrap { position: relative; display: block; }
+.sn-select-wrap::after {
+  content: "";
+  position: absolute;
+  right: 1em; top: 50%;
+  width: .45em; height: .45em;
+  margin-top: -.3em;
+  border-right: 2px solid rgb(var(--sn-ink-faint));
+  border-bottom: 2px solid rgb(var(--sn-ink-faint));
+  transform: rotate(45deg);
+  pointer-events: none;
 }
 
-/* ── Key/value rows ──────────────────────────────────────────────────── */
+/* ── Segmented control ─────────────────────────────────────────────────── */
+.sn-seg {
+  display: flex;
+  padding: var(--sn-space-1);
+  background: rgb(var(--sn-surface-sunken));
+  border-radius: var(--sn-r-md);
+}
+.sn-seg-btn {
+  flex: 1;
+  min-height: 2em;
+  border: 0;
+  border-radius: var(--sn-r-sm);
+  background: transparent;
+  color: rgb(var(--sn-ink-muted));
+  font: inherit;
+  font-size: .8125em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--sn-dur) var(--sn-ease);
+}
+.sn-seg-btn[aria-pressed="true"] { background: rgb(var(--sn-h)); color: #fff; }
+
+/* ── Stepper ───────────────────────────────────────────────────────────── */
+.sn-step {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgb(var(--sn-line));
+  border-radius: var(--sn-r-md);
+  overflow: hidden;
+  background: rgb(var(--sn-surface));
+}
+.sn-step-btn {
+  width: 2.1em;
+  min-height: 2.1em;
+  border: 0;
+  background: transparent;
+  color: rgb(var(--sn-ink));
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color var(--sn-dur) var(--sn-ease);
+}
+.sn-step-btn:hover { background: rgb(var(--sn-h) / .1); }
+.sn-step-btn:disabled { color: rgb(var(--sn-ink-faint)); cursor: default; }
+.sn-step-val {
+  min-width: 2.4em;
+  padding: 0 var(--sn-space-2);
+  text-align: center;
+  font-size: .875em;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  border-inline: 1px solid rgb(var(--sn-line-subtle));
+}
+
+/* ── Checkbox row ──────────────────────────────────────────────────────── */
+.sn-check {
+  display: flex;
+  align-items: center;
+  gap: var(--sn-space-3);
+  width: 100%;
+  padding: var(--sn-space-2) 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: .875em;
+  text-align: left;
+  cursor: pointer;
+}
+.sn-check-box {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 1.15em;
+  height: 1.15em;
+  border: 1px solid rgb(var(--sn-line-strong));
+  border-radius: var(--sn-r-xs);
+  background: rgb(var(--sn-surface));
+  transition: background-color var(--sn-dur) var(--sn-ease), border-color var(--sn-dur) var(--sn-ease);
+}
+.sn-check-box::after {
+  content: "";
+  width: .3em; height: .55em;
+  border-right: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: rotate(45deg) translate(-.05em, -.05em) scale(0);
+  transition: transform var(--sn-dur) var(--sn-ease);
+}
+.sn-check[aria-checked="true"] .sn-check-box { background: rgb(var(--sn-h)); border-color: rgb(var(--sn-h)); }
+.sn-check[aria-checked="true"] .sn-check-box::after { transform: rotate(45deg) translate(-.05em, -.05em) scale(1); }
+.sn-check-list { display: flex; flex-direction: column; gap: var(--sn-space-1); margin-top: var(--sn-space-2); }
+
+/* ── Dial: a 270° gauge ────────────────────────────────────────────────
+ * r=42 gives C≈263.9, so a full sweep is 197.9 (0.75 C). Both arcs are
+ * rotated 135° to put the gap at the bottom, which also makes fraction 0
+ * land at bottom-left. */
+.sn-dials { display: flex; gap: var(--sn-space-4); flex-wrap: wrap; }
+.sn-dial { display: flex; flex-direction: column; align-items: center; gap: var(--sn-space-2); flex: 1 1 6em; min-width: 0; }
+.sn-dial-svg { width: 100%; max-width: 6.5em; height: auto; overflow: visible; touch-action: none; cursor: grab; }
+.sn-dial-svg:active { cursor: grabbing; }
+.sn-dial-track, .sn-dial-arc {
+  fill: none;
+  stroke-width: 8;
+  stroke-linecap: round;
+  transform: rotate(135deg);
+  transform-origin: 50% 50%;
+}
+.sn-dial-track { stroke: rgb(var(--sn-h) / .14); }
+.sn-dial-arc { stroke: rgb(var(--sn-h)); transition: stroke-dasharray var(--sn-dur) var(--sn-ease); }
+.sn-dial-knob circle { fill: #fff; stroke: rgb(var(--sn-h)); stroke-width: 3; }
+/* Inside a viewBox `px` means user units; `em` would resolve against the
+ * inherited CSS font-size before the viewBox scale. */
+.sn-dial-val { font-size: 21px; font-weight: 700; fill: rgb(var(--sn-ink-strong)); font-variant-numeric: tabular-nums; }
+.sn-dial-cap { font-size: .75em; color: rgb(var(--sn-ink-faint)); text-align: center; }
+
+/* ── Meter ─────────────────────────────────────────────────────────────── */
+.sn-bar { height: .4em; border-radius: var(--sn-r-full); background: rgb(var(--sn-h) / .14); overflow: hidden; }
+.sn-bar-fill { height: 100%; border-radius: inherit; background: rgb(var(--sn-h)); transition: width .5s var(--sn-ease); }
+
+/* ── Key/value ─────────────────────────────────────────────────────────── */
 .sn-kv {
   display: flex;
   justify-content: space-between;
@@ -224,39 +599,27 @@
 }
 .sn-kv:last-child { border-bottom: 0; }
 .sn-kv-k { color: rgb(var(--sn-ink-muted)); }
-.sn-kv-v {
-  color: rgb(var(--sn-ink-strong));
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-}
+.sn-kv-v { color: rgb(var(--sn-ink-strong)); font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
 
-/* ── Meter ───────────────────────────────────────────────────────────── */
-.sn-bar {
-  height: .5em;
-  border-radius: var(--sn-r-full);
-  background: rgb(var(--sn-surface-sunken));
-  overflow: hidden;
+/* ── Table ───────────────────────────────────────────────────────────────
+ * Mirrors .markdown-body table exactly, so a table inside a component and
+ * one written in the message prose are indistinguishable. The wrapper is
+ * required: a wide table is the classic trigger for the auto-downscale. */
+.sn-table-wrap { overflow-x: auto; max-width: 100%; }
+.sn-table { border-collapse: collapse; width: 100%; margin: 0; font-size: .9em; }
+.sn-table th, .sn-table td {
+  padding: 8px 12px;
+  border: 1px solid var(--tw-prose-td-borders, #d1d5db);
+  text-align: left;
+  word-break: break-word;
+  background: transparent;
+  color: inherit;
 }
-.sn-bar-fill {
-  height: 100%;
-  border-radius: inherit;
-  background: rgb(var(--sn-accent));
-  transition: width var(--sn-dur) var(--sn-ease);
-}
+.sn-table th { font-weight: 600; white-space: nowrap; background: rgba(0, 0, 0, .04); }
 
-/* ── Rule ────────────────────────────────────────────────────────────────
- * Matches .markdown-body hr so a divider inside a component and one in the
- * surrounding prose are the same line. */
-.sn-rule {
-  height: 1px;
-  border: 0;
-  margin: var(--sn-space-5) 0;
-  background: rgb(var(--sn-line-subtle));
-}
-
-/* ── Code ────────────────────────────────────────────────────────────────
- * Mirrors .markdown-body code exactly, including the site's orange. */
+/* ── Rule + code ─────────────────────────────────────────────────────────
+ * Both mirror .markdown-body, orange inline code included. */
+.sn-rule { height: 1px; border: 0; margin: var(--sn-space-5) 0; background: var(--tw-prose-hr, #e5e7eb); }
 .sn-code {
   padding: 2px 6px;
   border-radius: 4px;
@@ -266,10 +629,12 @@
   font-size: .9em;
 }
 
+/* ── Layout helpers ────────────────────────────────────────────────────── */
+.sn-stack { display: flex; flex-direction: column; gap: var(--sn-space-4); }
+.sn-inline { display: flex; align-items: center; justify-content: space-between; gap: var(--sn-space-4); }
+
 @media (prefers-reduced-motion: reduce) {
-  .sn *,
-  .sn *::before,
-  .sn *::after {
+  .sn *, .sn *::before, .sn *::after {
     transition-duration: .01ms !important;
     animation-duration: .01ms !important;
   }
