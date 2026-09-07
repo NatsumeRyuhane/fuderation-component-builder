@@ -5,6 +5,9 @@ npm run preview          # http://localhost:5173
 npm run preview -- --open --port 5199
 ```
 
+端口被占用时会依次尝试后续端口（最多 100 个），终端和 `--open` 使用实际启动地址。
+`--port 0` 可让系统分配空闲端口。
+
 用**真实的 Fuderation 运行时**（冻结在 [`vendor/`](../../vendor/)）把 `src/` 渲染进模拟聊天气泡。
 界面语言为中文，配色与排版直接取自站点自己的样式表。默认开启自动刷新，在最后一次修改后等待 400 ms 再更新。
 
