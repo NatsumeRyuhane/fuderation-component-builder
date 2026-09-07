@@ -1,9 +1,38 @@
-# Fuderation component design system
+# Site-native UI kit
 
-A component should read as something the chat renderer emitted — the same
-surfaces, hairlines, radii and accent the surrounding page uses — not as a
-widget pasted into a message. This document defines how to get there, and why
-the usual approach (a `:root` token block) is the one thing you must not do.
+> **This is one option, not this repo's house style.** It is for components that
+> should disappear into the page — that read as something the chat renderer
+> emitted, using the same surfaces, hairlines, radii and accent as the
+> surrounding site. Plenty of good components want the opposite. Pick
+> deliberately; see [§0](#0-when-to-use-this-kit-and-when-not-to).
+
+This document defines how to get the site-native look, and why the usual
+approach — a `:root` token block — is the one thing you must not do here.
+
+## 0. When to use this kit (and when not to)
+
+**Use it when** the component is chrome: a status panel, a stat readout, a
+choice list, a settings row, an inventory table — anything whose job is to
+present information the storyline owns, where a distinct visual identity would
+read as noise. These want the site's tokens so that a theme change carries
+them along for free.
+
+**Do not use it when** the component *is* the content: a magic scroll, a
+terminal, a pixel-art inventory, a cursed diary page, a neon quest board. A
+storyline component is often supposed to be a set piece, and the
+`frontend-design` skill's advice — commit hard to one aesthetic — applies in
+full. Reaching for `sn-card` there produces exactly the anonymous, tasteful,
+forgettable box that skill warns against.
+
+**The middle path is common and supported.** Take `tokens.css` alone and skip
+`patterns.css`: you inherit the theme's accent, the site's radii and the prose
+type contract, then style the component however the storyline demands. That
+keeps a set piece from clashing with the page around it without flattening it
+into site chrome. §2's wrapper-alias rule is the part worth stealing
+regardless of aesthetic; everything from §7 onward is opinion.
+
+Nothing here is loaded automatically. `src/` does not depend on it, and a
+component that ignores this file entirely is not doing anything wrong.
 
 The token values here are taken from [`vendor/site-chat.css`](../../../vendor/site-chat.css),
 extracted from the live client. Behavioural claims are verified against
@@ -15,9 +44,9 @@ identifiers.
 
 | File | Tier | Counted size |
 |---|---|---|
-| [`assets/design-system/tokens.css`](assets/design-system/tokens.css) | iframe | 1993 |
-| [`assets/design-system/patterns.css`](assets/design-system/patterns.css) | iframe | 5473 |
-| [`assets/design-system/dsl-core.css`](assets/design-system/dsl-core.css) | DSL | 220 |
+| [`assets/site-native/tokens.css`](assets/site-native/tokens.css) | iframe | 1993 |
+| [`assets/site-native/patterns.css`](assets/site-native/patterns.css) | iframe | 5473 |
+| [`assets/site-native/dsl-core.css`](assets/site-native/dsl-core.css) | DSL | 220 |
 
 "Counted size" is after the build strips comments — the number that actually
 spends budget. Comments are free; whitespace is not (see §6).
@@ -45,9 +74,9 @@ restate the contract from scratch.
 Declare tokens **on the component's own wrapper**, never on `:root`:
 
 ```css
-.fd {
-  --fd-ink: var(--text-primary, 30 41 59);
-  --fd-accent: var(--color-primary-500, 82 82 91);
+.sn {
+  --sn-ink: var(--text-primary, 30 41 59);
+  --sn-accent: var(--color-primary-500, 82 82 91);
 }
 ```
 
@@ -58,7 +87,7 @@ Two reasons, both mechanical:
   render mode.
 - DSL mode never emits a `<style>` element. It runs each selector through
   `querySelectorAll` and merges the declarations into matching elements'
-  inline `style`. A `:root` rule matches nothing and vanishes. A `.fd` rule
+  inline `style`. A `:root` rule matches nothing and vanishes. A `.sn` rule
   lands on the wrapper as inline custom properties, which children inherit
   normally.
 
@@ -68,8 +97,8 @@ storyline theme; in iframe mode the fallback wins. Verified — this is the
 flattened output of the `stat-card` example:
 
 ```html
-<div class="fd" style="--fk:var(--bg-sunken,241 245 249);--fa:var(--color-primary-500,82 82 91);…">
-  <div class="fd-card" style="background:rgb(var(--fk));border:1px solid rgb(var(--fl));…">
+<div class="sn" style="--nk:var(--bg-sunken,241 245 249);--na:var(--color-primary-500,82 82 91);…">
+  <div class="sn-card" style="background:rgb(var(--nk));border:1px solid rgb(var(--nl));…">
 ```
 
 Custom properties and `var()` both survive the declaration filter (`Ce` admits
@@ -83,27 +112,27 @@ That is the site's own convention and it is what makes alpha tints possible.
 
 | Alias | Site token | Default |
 |---|---|---|
-| `--fd-surface` | `--bg-elevated` | `255 255 255` |
-| `--fd-surface-sunken` | `--bg-sunken` | `241 245 249` |
-| `--fd-surface-app` | `--bg-app` | `248 250 252` |
-| `--fd-ink-strong` | `--text-strong` | `15 23 42` |
-| `--fd-ink` | `--text-primary` | `30 41 59` |
-| `--fd-ink-muted` | `--text-secondary` | `71 85 105` |
-| `--fd-ink-faint` | `--text-tertiary` | `148 163 184` |
-| `--fd-ink-on-accent` | `--text-on-brand` | `255 255 255` |
-| `--fd-accent-soft` | `--color-primary-100` | `228 228 231` |
-| `--fd-accent-muted` | `--color-primary-300` | `161 161 170` |
-| `--fd-accent` | `--color-primary-500` | `82 82 91` |
-| `--fd-accent-strong` | `--color-primary-700` | `39 39 42` |
+| `--sn-surface` | `--bg-elevated` | `255 255 255` |
+| `--sn-surface-sunken` | `--bg-sunken` | `241 245 249` |
+| `--sn-surface-app` | `--bg-app` | `248 250 252` |
+| `--sn-ink-strong` | `--text-strong` | `15 23 42` |
+| `--sn-ink` | `--text-primary` | `30 41 59` |
+| `--sn-ink-muted` | `--text-secondary` | `71 85 105` |
+| `--sn-ink-faint` | `--text-tertiary` | `148 163 184` |
+| `--sn-ink-on-accent` | `--text-on-brand` | `255 255 255` |
+| `--sn-accent-soft` | `--color-primary-100` | `228 228 231` |
+| `--sn-accent-muted` | `--color-primary-300` | `161 161 170` |
+| `--sn-accent` | `--color-primary-500` | `82 82 91` |
+| `--sn-accent-strong` | `--color-primary-700` | `39 39 42` |
 
 **Hairlines are the exception.** `--border-subtle`, `--border-default` and
 `--border-strong` already carry their own alpha (`0 0 0 / .06`), so they are
-used as `rgb(var(--fd-line))` with **no** trailing slash. `rgb(var(--fd-line) / .5)`
+used as `rgb(var(--sn-line))` with **no** trailing slash. `rgb(var(--sn-line) / .5)`
 is invalid and drops the whole declaration.
 
 ### Tint, don't pick
 
-A container background of `rgb(var(--fd-accent) / .04)` reads as part of the
+A container background of `rgb(var(--sn-accent) / .04)` reads as part of the
 theme; `#f6f5fc` reads as a foreign box that happens to match today's theme.
 Under an indigo theme the tint is lavender, under a crimson one it is blush,
 and neither needed a second rule. Prefer accent-alpha over fixed greys for any
@@ -122,7 +151,7 @@ When an iframe-mode component genuinely must match the theme, pass the colour
 in as a parameter and let the AI supply it:
 
 ```css
-.fd { --fd-accent: $AccentRgb$; }   /* AI supplies e.g. 99 102 241 */
+.sn { --sn-accent: $AccentRgb$; }   /* AI supplies e.g. 99 102 241 */
 ```
 
 Parameter values are inserted into CSS **raw**, not escaped — keep such a
@@ -137,18 +166,18 @@ in `--font-ui` (Inter first, then system stack).
   inherited from `.markdown-body`, correctly, including the user's font-size
   setting. Size leaf elements in `em` only.
 - **iframe tier: restate it** — nothing is inherited. `patterns.css` sets
-  `15px / 1.75 / var(--fd-font)` on `.fd`.
+  `15px / 1.75 / var(--sn-font)` on `.sn`.
 
 Leaf scale, in `em` so it composes with the inherited base (do not nest these —
 `em` compounds):
 
 | Role | Size | Weight | Colour |
 |---|---|---|---|
-| Title | `.9375em` | 600 | `--fd-ink-strong` |
-| Body | `1em` | 400 | `--fd-ink` |
-| Control label | `.875em` | 600 | `--fd-ink-muted` |
-| Meta / caption | `.8125em` | 400 | `--fd-ink-faint` |
-| Badge | `.75em` | 600 | `--fd-accent-strong` |
+| Title | `.9375em` | 600 | `--sn-ink-strong` |
+| Body | `1em` | 400 | `--sn-ink` |
+| Control label | `.875em` | 600 | `--sn-ink-muted` |
+| Meta / caption | `.8125em` | 400 | `--sn-ink-faint` |
+| Badge | `.75em` | 600 | `--sn-accent-strong` |
 
 **Inter reaches DSL-mode components and not iframe-mode ones** (`font-src` is
 `data:` only, and `@font-face` with a data URI is the only workaround). The
@@ -161,15 +190,15 @@ not fixable; it is worth knowing before you blame your line-height.
 `--chat-message-font-size` is a user setting, so `em` padding grows with the
 message text and stays in proportion to the prose, while `rem` radii stay
 locked to the site's chrome at 16px root in both modes. Scale:
-`.25 / .375 / .5 / .75 / 1 / 1.25 / 1.75em` (`--fd-space-1` … `-7`).
+`.25 / .375 / .5 / .75 / 1 / 1.25 / 1.75em` (`--sn-space-1` … `-7`).
 
-Radii map straight through: `--fd-r-xs` `.25rem` → `--fd-r-2xl` `1.25rem`,
-plus `--fd-r-full`. Cards use `--fd-r-xl`, rows and inputs `--fd-r-lg`/`-md`,
-pills `--fd-r-full`.
+Radii map straight through: `--sn-r-xs` `.25rem` → `--sn-r-2xl` `1.25rem`,
+plus `--sn-r-full`. Cards use `--sn-r-xl`, rows and inputs `--sn-r-lg`/`-md`,
+pills `--sn-r-full`.
 
 Elevation is the site's four `--shadow-*` values. Inside a chat bubble the
 bubble already carries the page's elevation, so a component should rarely go
-past `--fd-shadow-sm`; use a hairline before you reach for a shadow.
+past `--sn-shadow-sm`; use a hairline before you reach for a shadow.
 
 Motion is `--duration-base` (.2s) on `--ease-out`
 (`cubic-bezier(.16, 1, .3, 1)`), `--duration-fast` (.15s) for pressed states.
@@ -192,8 +221,8 @@ logic from `storyComponents.js`.
    unconditionally, with the media condition discarded**:
 
    ```
-   .fd{color:red}@media (min-width:0px){.fd{font-size:15px}}
-   →  [{.fd, color:red}, {.fd, font-size:15px}]
+   .sn{color:red}@media (min-width:0px){.sn{font-size:15px}}
+   →  [{.sn, color:red}, {.sn, font-size:15px}]
    ```
 
    A component with a pure-DSL script keeps DSL mode even with an at-rule
@@ -230,24 +259,24 @@ script toggles. If the design needs any of that, put it in iframe mode
 
 ## 7. Patterns
 
-[`patterns.css`](assets/design-system/patterns.css) is a **menu, not a
+[`patterns.css`](assets/site-native/patterns.css) is a **menu, not a
 bundle** — copy the blocks you use. Taken whole it costs 5473 of the 20000
 combined `html`+`css`+`script` budget, which is affordable but rarely
 necessary.
 
 | Class | Use |
 |---|---|
-| `.fd` | Wrapper. Restates the prose contract (iframe only) and holds the tokens. |
-| `.fd-card` / `--plain` | Accent-tinted container / white elevated container. |
-| `.fd-head`, `.fd-title`, `.fd-meta` | Heading row. |
-| `.fd-list`, `.fd-option`, `.fd-option-idx` | Choice rows. |
-| `.fd-btn` + `--primary` / `--secondary` / `--ghost` | Buttons, `min-height: 2.75em` ≈ the 41px touch floor. |
-| `.fd-badge` / `--quiet` | Status pill. |
-| `.fd-field`, `.fd-label`, `.fd-input` | Form control. |
-| `.fd-kv`, `.fd-kv-k`, `.fd-kv-v` | Key/value rows. |
-| `.fd-bar`, `.fd-bar-fill` | Meter. |
-| `.fd-rule` | Divider matching `.markdown-body hr`. |
-| `.fd-code` | Inline code matching `.markdown-body code`, orange included. |
+| `.sn` | Wrapper. Restates the prose contract (iframe only) and holds the tokens. |
+| `.sn-card` / `--plain` | Accent-tinted container / white elevated container. |
+| `.sn-head`, `.sn-title`, `.sn-meta` | Heading row. |
+| `.sn-list`, `.sn-option`, `.sn-option-idx` | Choice rows. |
+| `.sn-btn` + `--primary` / `--secondary` / `--ghost` | Buttons, `min-height: 2.75em` ≈ the 41px touch floor. |
+| `.sn-badge` / `--quiet` | Status pill. |
+| `.sn-field`, `.sn-label`, `.sn-input` | Form control. |
+| `.sn-kv`, `.sn-kv-k`, `.sn-kv-v` | Key/value rows. |
+| `.sn-bar`, `.sn-bar-fill` | Meter. |
+| `.sn-rule` | Divider matching `.markdown-body hr`. |
+| `.sn-code` | Inline code matching `.markdown-body code`, orange included. |
 
 Two rules the runtime enforces for you, painfully, if you break them:
 
@@ -256,20 +285,20 @@ Two rules the runtime enforces for you, painfully, if you break them:
   it overflows the bubble — everything becomes tiny at once. A bare list of
   siblings measures wrong.
 - **No horizontal overflow.** Long URLs, IDs and unbroken CJK runs trigger the
-  same downscale, which is why `.fd p/li/td` set `overflow-wrap: anywhere`.
+  same downscale, which is why `.sn p/li/td` set `overflow-wrap: anywhere`.
   That rule is load-bearing, not cosmetic.
 
-The index in `.fd-option` is a real `<span>`, not `::marker` or `::before`,
+The index in `.sn-option` is a real `<span>`, not `::marker` or `::before`,
 so the markup stays portable to DSL mode.
 
 ## 8. Worked examples
 
 Both build clean with no warnings (`node scripts/build.mjs <dir>`).
 
-- [`examples/stat-card`](assets/design-system/examples/stat-card) — DSL tier,
+- [`examples/stat-card`](assets/site-native/examples/stat-card) — DSL tier,
   scriptless. Lands in DSL mode at **632/1000 CSS chars**, token core
   included, 368 spare. Sets no font-family: it inherits the prose.
-- [`examples/choice-list`](assets/design-system/examples/choice-list) — iframe
+- [`examples/choice-list`](assets/site-native/examples/choice-list) — iframe
   tier. The themed option list, **8729/20000** total, with hover, focus rings
   and `fillInput` on click.
 
@@ -281,7 +310,7 @@ Both build clean with no warnings (`node scripts/build.mjs <dir>`).
 - [ ] Accent tints instead of fixed greys for themed surfaces.
 - [ ] DSL tier: no `font-family`, no base `font-size`, no hover, no motion,
       no data URIs, no `@media`, compact declarations.
-- [ ] iframe tier: restate font, size, leading and colour on `.fd`.
+- [ ] iframe tier: restate font, size, leading and colour on `.sn`.
 - [ ] One wrapper, `width: 100%`, no fixed px width, no horizontal overflow.
 - [ ] `npm run build` reports the mode you intended and prints no warnings.
 - [ ] `npm run preview` at a narrow width — no downscale, no clipped CSS.

@@ -13,4 +13,4 @@
  * tokens.css instead whenever the component is in iframe mode, where the CSS
  * is a real stylesheet and there is no cap.
  */
-.fd{--fs:var(--bg-elevated,255 255 255);--fk:var(--bg-sunken,241 245 249);--fl:var(--border-subtle,0 0 0/.06);--fi:var(--text-primary,30 41 59);--fm:var(--text-secondary,71 85 105);--fa:var(--color-primary-500,82 82 91)}
+.sn{--fs:var(--bg-elevated,255 255 255);--nk:var(--bg-sunken,241 245 249);--nl:var(--border-subtle,0 0 0/.06);--ni:var(--text-primary,30 41 59);--nm:var(--text-secondary,71 85 105);--na:var(--color-primary-500,82 82 91)}

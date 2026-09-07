@@ -1,10 +1,10 @@
 /* Fuderation component design tokens — the alias layer.
  *
- * Scoped to the component wrapper (.fd), never to :root. Two reasons:
+ * Scoped to the component wrapper (.sn), never to :root. Two reasons:
  *   1. A scriptless component whose CSS targets html/body/:root is forced into
  *      iframe mode by the runtime (regex Q in storyComponents.js).
  *   2. DSL mode has no stylesheet at all — it flattens each rule onto the
- *      elements it matches. A :root rule would match nothing; a .fd rule lands
+ *      elements it matches. A :root rule would match nothing; a .sn rule lands
  *      on the wrapper as inline custom properties, which children inherit.
  *
  * Every alias is var(--site-token, shipped-default). In DSL mode the component
@@ -12,72 +12,72 @@
  * the live storyline theme. In iframe mode no host token crosses the frame
  * boundary, so the shipped default wins. Same file, both modes.
  *
- * Colours are space-separated RGB triples, used as rgb(var(--fd-x) / alpha) --
- * the site's own convention. The three --fd-line-* aliases are the exception:
- * they already carry their own alpha, so use rgb(var(--fd-line)) with no slash.
+ * Colours are space-separated RGB triples, used as rgb(var(--sn-x) / alpha) --
+ * the site's own convention. The three --sn-line-* aliases are the exception:
+ * they already carry their own alpha, so use rgb(var(--sn-line)) with no slash.
  */
 
-.fd {
+.sn {
   /* Surfaces */
-  --fd-surface: var(--bg-elevated, 255 255 255);
-  --fd-surface-sunken: var(--bg-sunken, 241 245 249);
-  --fd-surface-app: var(--bg-app, 248 250 252);
+  --sn-surface: var(--bg-elevated, 255 255 255);
+  --sn-surface-sunken: var(--bg-sunken, 241 245 249);
+  --sn-surface-app: var(--bg-app, 248 250 252);
 
-  /* Hairlines. Already alpha-qualified: rgb(var(--fd-line)), never / .5 */
-  --fd-line-subtle: var(--border-subtle, 0 0 0 / .06);
-  --fd-line: var(--border-default, 0 0 0 / .1);
-  --fd-line-strong: var(--border-strong, 0 0 0 / .16);
+  /* Hairlines. Already alpha-qualified: rgb(var(--sn-line)), never / .5 */
+  --sn-line-subtle: var(--border-subtle, 0 0 0 / .06);
+  --sn-line: var(--border-default, 0 0 0 / .1);
+  --sn-line-strong: var(--border-strong, 0 0 0 / .16);
 
   /* Ink */
-  --fd-ink-strong: var(--text-strong, 15 23 42);
-  --fd-ink: var(--text-primary, 30 41 59);
-  --fd-ink-muted: var(--text-secondary, 71 85 105);
-  --fd-ink-faint: var(--text-tertiary, 148 163 184);
-  --fd-ink-on-accent: var(--text-on-brand, 255 255 255);
+  --sn-ink-strong: var(--text-strong, 15 23 42);
+  --sn-ink: var(--text-primary, 30 41 59);
+  --sn-ink-muted: var(--text-secondary, 71 85 105);
+  --sn-ink-faint: var(--text-tertiary, 148 163 184);
+  --sn-ink-on-accent: var(--text-on-brand, 255 255 255);
 
   /* Accent ramp. The storyline theme overrides --color-primary-* wholesale;
    * the defaults here are the site's shipped zinc ramp, which stays quiet
-   * under any theme rather than fighting it. See DESIGN_SYSTEM.md. */
-  --fd-accent-soft: var(--color-primary-100, 228 228 231);
-  --fd-accent-muted: var(--color-primary-300, 161 161 170);
-  --fd-accent: var(--color-primary-500, 82 82 91);
-  --fd-accent-strong: var(--color-primary-700, 39 39 42);
+   * under any theme rather than fighting it. See SITE_NATIVE_KIT.md. */
+  --sn-accent-soft: var(--color-primary-100, 228 228 231);
+  --sn-accent-muted: var(--color-primary-300, 161 161 170);
+  --sn-accent: var(--color-primary-500, 82 82 91);
+  --sn-accent-strong: var(--color-primary-700, 39 39 42);
 
   /* Radii — rem, so they match the site's chrome at any message font size */
-  --fd-r-xs: var(--radius-xs, .25rem);
-  --fd-r-sm: var(--radius-sm, .375rem);
-  --fd-r-md: var(--radius-md, .5rem);
-  --fd-r-lg: var(--radius-lg, .75rem);
-  --fd-r-xl: var(--radius-xl, 1rem);
-  --fd-r-2xl: var(--radius-2xl, 1.25rem);
-  --fd-r-full: var(--radius-full, 9999px);
+  --sn-r-xs: var(--radius-xs, .25rem);
+  --sn-r-sm: var(--radius-sm, .375rem);
+  --sn-r-md: var(--radius-md, .5rem);
+  --sn-r-lg: var(--radius-lg, .75rem);
+  --sn-r-xl: var(--radius-xl, 1rem);
+  --sn-r-2xl: var(--radius-2xl, 1.25rem);
+  --sn-r-full: var(--radius-full, 9999px);
 
   /* Elevation */
-  --fd-shadow-xs: var(--shadow-xs, 0 1px 2px rgb(0 0 0 / .04));
-  --fd-shadow-sm: var(--shadow-sm, 0 1px 3px rgb(0 0 0 / .06), 0 1px 2px rgb(0 0 0 / .04));
-  --fd-shadow-md: var(--shadow-md, 0 4px 8px rgb(0 0 0 / .06), 0 2px 4px rgb(0 0 0 / .04));
-  --fd-shadow-lg: var(--shadow-lg, 0 12px 24px rgb(0 0 0 / .08), 0 4px 8px rgb(0 0 0 / .04));
+  --sn-shadow-xs: var(--shadow-xs, 0 1px 2px rgb(0 0 0 / .04));
+  --sn-shadow-sm: var(--shadow-sm, 0 1px 3px rgb(0 0 0 / .06), 0 1px 2px rgb(0 0 0 / .04));
+  --sn-shadow-md: var(--shadow-md, 0 4px 8px rgb(0 0 0 / .06), 0 2px 4px rgb(0 0 0 / .04));
+  --sn-shadow-lg: var(--shadow-lg, 0 12px 24px rgb(0 0 0 / .08), 0 4px 8px rgb(0 0 0 / .04));
 
   /* Motion */
-  --fd-ease: var(--ease-out, cubic-bezier(.16, 1, .3, 1));
-  --fd-dur-fast: var(--duration-fast, .15s);
-  --fd-dur: var(--duration-base, .2s);
+  --sn-ease: var(--ease-out, cubic-bezier(.16, 1, .3, 1));
+  --sn-dur-fast: var(--duration-fast, .15s);
+  --sn-dur: var(--duration-base, .2s);
 
   /* Type. Inter is a webfont on the host page, so DSL-mode components get it
    * and iframe-mode ones cannot (CSP font-src is data: only) — the stack falls
    * through to system-ui there. Expect a small type difference between modes. */
-  --fd-font: var(--font-ui, Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif);
-  --fd-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --sn-font: var(--font-ui, Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif);
+  --sn-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
   /* Spacing — em, so the component breathes with --chat-message-font-size
    * (a user setting) instead of drifting out of scale with the prose. */
-  --fd-space-1: .25em;
-  --fd-space-2: .375em;
-  --fd-space-3: .5em;
-  --fd-space-4: .75em;
-  --fd-space-5: 1em;
-  --fd-space-6: 1.25em;
-  --fd-space-7: 1.75em;
+  --sn-space-1: .25em;
+  --sn-space-2: .375em;
+  --sn-space-3: .5em;
+  --sn-space-4: .75em;
+  --sn-space-5: 1em;
+  --sn-space-6: 1.25em;
+  --sn-space-7: 1.75em;
 }
 /* Fuderation component patterns — iframe tier.
  *
@@ -98,259 +98,259 @@
  * the site's own defaults for --chat-message-font-size and .markdown-body.
  * Do NOT copy this block into a DSL-mode component — there it would override
  * the prose sizing it is meant to imitate. */
-.fd {
+.sn {
   width: 100%;
   box-sizing: border-box;
-  font-family: var(--fd-font);
+  font-family: var(--sn-font);
   font-size: 15px;
   line-height: 1.75;
-  color: rgb(var(--fd-ink));
+  color: rgb(var(--sn-ink));
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
-.fd *,
-.fd *::before,
-.fd *::after { box-sizing: inherit; }
+.sn *,
+.sn *::before,
+.sn *::after { box-sizing: inherit; }
 
 /* Long unbroken strings (URLs, IDs, CJK runs) are the most common cause of the
  * runtime's auto-downscale. Wrapping is not cosmetic here, it is load-bearing. */
-.fd p,
-.fd li,
-.fd td { overflow-wrap: anywhere; word-break: break-word; }
+.sn p,
+.sn li,
+.sn td { overflow-wrap: anywhere; word-break: break-word; }
 
 /* ── Card ────────────────────────────────────────────────────────────────
  * The tinted container. The wash is the accent at 4% rather than a fixed grey,
  * which is why it reads as "part of the theme" instead of "a grey box": under
  * an indigo theme it is lavender, under a crimson one it is blush. */
-.fd-card {
-  background: rgb(var(--fd-accent) / .04);
-  border: 1px solid rgb(var(--fd-line-subtle));
-  border-radius: var(--fd-r-xl);
-  padding: var(--fd-space-5);
+.sn-card {
+  background: rgb(var(--sn-accent) / .04);
+  border: 1px solid rgb(var(--sn-line-subtle));
+  border-radius: var(--sn-r-xl);
+  padding: var(--sn-space-5);
 }
-.fd-card--plain {
-  background: rgb(var(--fd-surface));
-  box-shadow: var(--fd-shadow-sm);
+.sn-card--plain {
+  background: rgb(var(--sn-surface));
+  box-shadow: var(--sn-shadow-sm);
 }
 
 /* ── Heading ─────────────────────────────────────────────────────────── */
-.fd-head {
+.sn-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: var(--fd-space-3);
-  margin-bottom: var(--fd-space-4);
+  gap: var(--sn-space-3);
+  margin-bottom: var(--sn-space-4);
 }
-.fd-title {
+.sn-title {
   font-size: .9375em;
   font-weight: 600;
-  color: rgb(var(--fd-ink-strong));
+  color: rgb(var(--sn-ink-strong));
   letter-spacing: -.01em;
 }
-.fd-meta {
+.sn-meta {
   font-size: .8125em;
-  color: rgb(var(--fd-ink-faint));
+  color: rgb(var(--sn-ink-faint));
 }
 
 /* ── Option list ─────────────────────────────────────────────────────────
  * The choice rows the site renders under a story beat. */
-.fd-list {
+.sn-list {
   display: flex;
   flex-direction: column;
-  gap: var(--fd-space-3);
+  gap: var(--sn-space-3);
   margin: 0;
   padding: 0;
   list-style: none;
 }
-.fd-option {
+.sn-option {
   display: flex;
-  gap: var(--fd-space-3);
+  gap: var(--sn-space-3);
   width: 100%;
-  padding: var(--fd-space-4) var(--fd-space-5);
+  padding: var(--sn-space-4) var(--sn-space-5);
   text-align: left;
-  background: rgb(var(--fd-surface));
-  border: 1px solid rgb(var(--fd-line-subtle));
-  border-radius: var(--fd-r-lg);
-  color: rgb(var(--fd-accent-strong));
+  background: rgb(var(--sn-surface));
+  border: 1px solid rgb(var(--sn-line-subtle));
+  border-radius: var(--sn-r-lg);
+  color: rgb(var(--sn-accent-strong));
   font: inherit;
   font-size: .9375em;
   font-weight: 500;
   cursor: pointer;
-  transition: border-color var(--fd-dur) var(--fd-ease),
-              box-shadow var(--fd-dur) var(--fd-ease),
-              transform var(--fd-dur-fast) var(--fd-ease);
+  transition: border-color var(--sn-dur) var(--sn-ease),
+              box-shadow var(--sn-dur) var(--sn-ease),
+              transform var(--sn-dur-fast) var(--sn-ease);
 }
-.fd-option:hover {
-  border-color: rgb(var(--fd-accent) / .35);
-  box-shadow: var(--fd-shadow-sm);
+.sn-option:hover {
+  border-color: rgb(var(--sn-accent) / .35);
+  box-shadow: var(--sn-shadow-sm);
 }
-.fd-option:active { transform: translateY(1px); }
-.fd-option:focus-visible {
-  outline: 2px solid rgb(var(--fd-accent) / .5);
+.sn-option:active { transform: translateY(1px); }
+.sn-option:focus-visible {
+  outline: 2px solid rgb(var(--sn-accent) / .5);
   outline-offset: 2px;
 }
-.fd-option[aria-disabled="true"],
-.fd-option:disabled {
-  color: rgb(var(--fd-ink-faint));
+.sn-option[aria-disabled="true"],
+.sn-option:disabled {
+  color: rgb(var(--sn-ink-faint));
   cursor: default;
   pointer-events: none;
 }
 /* The index is a sibling element, not ::marker — DSL mode cannot style
  * pseudo-elements at all, so keeping it real makes the markup portable. */
-.fd-option-idx {
+.sn-option-idx {
   flex: none;
   font-variant-numeric: tabular-nums;
-  color: rgb(var(--fd-accent) / .7);
+  color: rgb(var(--sn-accent) / .7);
 }
 
 /* ── Buttons ─────────────────────────────────────────────────────────────
  * min-height 2.75em ≈ 41px at the 15px base: the mobile touch-target floor. */
-.fd-btn {
+.sn-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--fd-space-2);
+  gap: var(--sn-space-2);
   min-height: 2.75em;
-  padding: var(--fd-space-3) var(--fd-space-5);
+  padding: var(--sn-space-3) var(--sn-space-5);
   border: 1px solid transparent;
-  border-radius: var(--fd-r-md);
+  border-radius: var(--sn-r-md);
   font: inherit;
   font-size: .875em;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color var(--fd-dur) var(--fd-ease),
-              border-color var(--fd-dur) var(--fd-ease);
+  transition: background-color var(--sn-dur) var(--sn-ease),
+              border-color var(--sn-dur) var(--sn-ease);
 }
-.fd-btn--primary {
-  background: rgb(var(--fd-accent));
-  color: rgb(var(--fd-ink-on-accent));
+.sn-btn--primary {
+  background: rgb(var(--sn-accent));
+  color: rgb(var(--sn-ink-on-accent));
 }
-.fd-btn--primary:hover { background: rgb(var(--fd-accent-strong)); }
-.fd-btn--secondary {
-  background: rgb(var(--fd-surface));
-  border-color: rgb(var(--fd-line));
-  color: rgb(var(--fd-ink));
+.sn-btn--primary:hover { background: rgb(var(--sn-accent-strong)); }
+.sn-btn--secondary {
+  background: rgb(var(--sn-surface));
+  border-color: rgb(var(--sn-line));
+  color: rgb(var(--sn-ink));
 }
-.fd-btn--secondary:hover { border-color: rgb(var(--fd-line-strong)); }
-.fd-btn--ghost {
+.sn-btn--secondary:hover { border-color: rgb(var(--sn-line-strong)); }
+.sn-btn--ghost {
   background: transparent;
-  color: rgb(var(--fd-accent-strong));
+  color: rgb(var(--sn-accent-strong));
 }
-.fd-btn--ghost:hover { background: rgb(var(--fd-accent) / .08); }
-.fd-btn:focus-visible {
-  outline: 2px solid rgb(var(--fd-accent) / .5);
+.sn-btn--ghost:hover { background: rgb(var(--sn-accent) / .08); }
+.sn-btn:focus-visible {
+  outline: 2px solid rgb(var(--sn-accent) / .5);
   outline-offset: 2px;
 }
-.fd-btn:disabled {
+.sn-btn:disabled {
   opacity: .5;
   cursor: default;
   pointer-events: none;
 }
 
 /* ── Badge ───────────────────────────────────────────────────────────── */
-.fd-badge {
+.sn-badge {
   display: inline-flex;
   align-items: center;
-  gap: var(--fd-space-1);
-  padding: .125em var(--fd-space-3);
-  border-radius: var(--fd-r-full);
-  background: rgb(var(--fd-accent) / .1);
-  color: rgb(var(--fd-accent-strong));
+  gap: var(--sn-space-1);
+  padding: .125em var(--sn-space-3);
+  border-radius: var(--sn-r-full);
+  background: rgb(var(--sn-accent) / .1);
+  color: rgb(var(--sn-accent-strong));
   font-size: .75em;
   font-weight: 600;
   white-space: nowrap;
 }
-.fd-badge--quiet {
-  background: rgb(var(--fd-surface-sunken));
-  color: rgb(var(--fd-ink-muted));
+.sn-badge--quiet {
+  background: rgb(var(--sn-surface-sunken));
+  color: rgb(var(--sn-ink-muted));
 }
 
 /* ── Field ───────────────────────────────────────────────────────────── */
-.fd-field {
+.sn-field {
   display: flex;
   flex-direction: column;
-  gap: var(--fd-space-2);
+  gap: var(--sn-space-2);
 }
-.fd-label {
+.sn-label {
   font-size: .8125em;
   font-weight: 600;
-  color: rgb(var(--fd-ink-muted));
+  color: rgb(var(--sn-ink-muted));
 }
-.fd-input {
+.sn-input {
   width: 100%;
   min-height: 2.75em;
-  padding: var(--fd-space-3) var(--fd-space-4);
-  background: rgb(var(--fd-surface));
-  border: 1px solid rgb(var(--fd-line));
-  border-radius: var(--fd-r-md);
+  padding: var(--sn-space-3) var(--sn-space-4);
+  background: rgb(var(--sn-surface));
+  border: 1px solid rgb(var(--sn-line));
+  border-radius: var(--sn-r-md);
   font: inherit;
   font-size: .9375em;
-  color: rgb(var(--fd-ink));
+  color: rgb(var(--sn-ink));
 }
-.fd-input::placeholder { color: rgb(var(--fd-ink-faint)); }
-.fd-input:focus {
+.sn-input::placeholder { color: rgb(var(--sn-ink-faint)); }
+.sn-input:focus {
   outline: none;
-  border-color: rgb(var(--fd-accent) / .55);
-  box-shadow: 0 0 0 3px rgb(var(--fd-accent) / .12);
+  border-color: rgb(var(--sn-accent) / .55);
+  box-shadow: 0 0 0 3px rgb(var(--sn-accent) / .12);
 }
 
 /* ── Key/value rows ──────────────────────────────────────────────────── */
-.fd-kv {
+.sn-kv {
   display: flex;
   justify-content: space-between;
-  gap: var(--fd-space-4);
-  padding: var(--fd-space-3) 0;
-  border-bottom: 1px solid rgb(var(--fd-line-subtle));
+  gap: var(--sn-space-4);
+  padding: var(--sn-space-3) 0;
+  border-bottom: 1px solid rgb(var(--sn-line-subtle));
   font-size: .875em;
 }
-.fd-kv:last-child { border-bottom: 0; }
-.fd-kv-k { color: rgb(var(--fd-ink-muted)); }
-.fd-kv-v {
-  color: rgb(var(--fd-ink-strong));
+.sn-kv:last-child { border-bottom: 0; }
+.sn-kv-k { color: rgb(var(--sn-ink-muted)); }
+.sn-kv-v {
+  color: rgb(var(--sn-ink-strong));
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
 
 /* ── Meter ───────────────────────────────────────────────────────────── */
-.fd-bar {
+.sn-bar {
   height: .5em;
-  border-radius: var(--fd-r-full);
-  background: rgb(var(--fd-surface-sunken));
+  border-radius: var(--sn-r-full);
+  background: rgb(var(--sn-surface-sunken));
   overflow: hidden;
 }
-.fd-bar-fill {
+.sn-bar-fill {
   height: 100%;
   border-radius: inherit;
-  background: rgb(var(--fd-accent));
-  transition: width var(--fd-dur) var(--fd-ease);
+  background: rgb(var(--sn-accent));
+  transition: width var(--sn-dur) var(--sn-ease);
 }
 
 /* ── Rule ────────────────────────────────────────────────────────────────
  * Matches .markdown-body hr so a divider inside a component and one in the
  * surrounding prose are the same line. */
-.fd-rule {
+.sn-rule {
   height: 1px;
   border: 0;
-  margin: var(--fd-space-5) 0;
-  background: rgb(var(--fd-line-subtle));
+  margin: var(--sn-space-5) 0;
+  background: rgb(var(--sn-line-subtle));
 }
 
 /* ── Code ────────────────────────────────────────────────────────────────
  * Mirrors .markdown-body code exactly, including the site's orange. */
-.fd-code {
+.sn-code {
   padding: 2px 6px;
   border-radius: 4px;
   background: #f1f5f9;
   color: var(--tw-prose-code, #ea580c);
-  font-family: var(--fd-font-mono);
+  font-family: var(--sn-font-mono);
   font-size: .9em;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .fd *,
-  .fd *::before,
-  .fd *::after {
+  .sn *,
+  .sn *::before,
+  .sn *::after {
     transition-duration: .01ms !important;
     animation-duration: .01ms !important;
   }

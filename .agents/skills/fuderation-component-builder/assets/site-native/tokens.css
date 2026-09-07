@@ -1,0 +1,81 @@
+/* Fuderation component design tokens — the alias layer.
+ *
+ * Scoped to the component wrapper (.sn), never to :root. Two reasons:
+ *   1. A scriptless component whose CSS targets html/body/:root is forced into
+ *      iframe mode by the runtime (regex Q in storyComponents.js).
+ *   2. DSL mode has no stylesheet at all — it flattens each rule onto the
+ *      elements it matches. A :root rule would match nothing; a .sn rule lands
+ *      on the wrapper as inline custom properties, which children inherit.
+ *
+ * Every alias is var(--site-token, shipped-default). In DSL mode the component
+ * lives in the host document, so the site token wins and the component follows
+ * the live storyline theme. In iframe mode no host token crosses the frame
+ * boundary, so the shipped default wins. Same file, both modes.
+ *
+ * Colours are space-separated RGB triples, used as rgb(var(--sn-x) / alpha) --
+ * the site's own convention. The three --sn-line-* aliases are the exception:
+ * they already carry their own alpha, so use rgb(var(--sn-line)) with no slash.
+ */
+
+.sn {
+  /* Surfaces */
+  --sn-surface: var(--bg-elevated, 255 255 255);
+  --sn-surface-sunken: var(--bg-sunken, 241 245 249);
+  --sn-surface-app: var(--bg-app, 248 250 252);
+
+  /* Hairlines. Already alpha-qualified: rgb(var(--sn-line)), never / .5 */
+  --sn-line-subtle: var(--border-subtle, 0 0 0 / .06);
+  --sn-line: var(--border-default, 0 0 0 / .1);
+  --sn-line-strong: var(--border-strong, 0 0 0 / .16);
+
+  /* Ink */
+  --sn-ink-strong: var(--text-strong, 15 23 42);
+  --sn-ink: var(--text-primary, 30 41 59);
+  --sn-ink-muted: var(--text-secondary, 71 85 105);
+  --sn-ink-faint: var(--text-tertiary, 148 163 184);
+  --sn-ink-on-accent: var(--text-on-brand, 255 255 255);
+
+  /* Accent ramp. The storyline theme overrides --color-primary-* wholesale;
+   * the defaults here are the site's shipped zinc ramp, which stays quiet
+   * under any theme rather than fighting it. See SITE_NATIVE_KIT.md. */
+  --sn-accent-soft: var(--color-primary-100, 228 228 231);
+  --sn-accent-muted: var(--color-primary-300, 161 161 170);
+  --sn-accent: var(--color-primary-500, 82 82 91);
+  --sn-accent-strong: var(--color-primary-700, 39 39 42);
+
+  /* Radii — rem, so they match the site's chrome at any message font size */
+  --sn-r-xs: var(--radius-xs, .25rem);
+  --sn-r-sm: var(--radius-sm, .375rem);
+  --sn-r-md: var(--radius-md, .5rem);
+  --sn-r-lg: var(--radius-lg, .75rem);
+  --sn-r-xl: var(--radius-xl, 1rem);
+  --sn-r-2xl: var(--radius-2xl, 1.25rem);
+  --sn-r-full: var(--radius-full, 9999px);
+
+  /* Elevation */
+  --sn-shadow-xs: var(--shadow-xs, 0 1px 2px rgb(0 0 0 / .04));
+  --sn-shadow-sm: var(--shadow-sm, 0 1px 3px rgb(0 0 0 / .06), 0 1px 2px rgb(0 0 0 / .04));
+  --sn-shadow-md: var(--shadow-md, 0 4px 8px rgb(0 0 0 / .06), 0 2px 4px rgb(0 0 0 / .04));
+  --sn-shadow-lg: var(--shadow-lg, 0 12px 24px rgb(0 0 0 / .08), 0 4px 8px rgb(0 0 0 / .04));
+
+  /* Motion */
+  --sn-ease: var(--ease-out, cubic-bezier(.16, 1, .3, 1));
+  --sn-dur-fast: var(--duration-fast, .15s);
+  --sn-dur: var(--duration-base, .2s);
+
+  /* Type. Inter is a webfont on the host page, so DSL-mode components get it
+   * and iframe-mode ones cannot (CSP font-src is data: only) — the stack falls
+   * through to system-ui there. Expect a small type difference between modes. */
+  --sn-font: var(--font-ui, Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif);
+  --sn-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Spacing — em, so the component breathes with --chat-message-font-size
+   * (a user setting) instead of drifting out of scale with the prose. */
+  --sn-space-1: .25em;
+  --sn-space-2: .375em;
+  --sn-space-3: .5em;
+  --sn-space-4: .75em;
+  --sn-space-5: 1em;
+  --sn-space-6: 1.25em;
+  --sn-space-7: 1.75em;
+}
