@@ -336,20 +336,17 @@ Two rules the runtime enforces for you, painfully, if you break them:
 
 ## 9. Worked examples
 
-Build any of them with `node scripts/build.mjs <dir>`.
+Build either with `node scripts/build.mjs <dir>`.
 
 - [`examples/stat-card`](assets/site-native/examples/stat-card) — DSL tier,
   scriptless. **DSL mode, 632/1000 CSS chars** with the token core included.
   Sets no font-family: it inherits the prose.
 - [`examples/choice-list`](assets/site-native/examples/choice-list) — iframe
-  tier, **5199/20000**, taking only the kit blocks it uses.
-- [`src/`](../../../src) — the kitchen sink: settings rows with six hues,
-  toggles, a slider with scale and hint, stepper, segmented control, select,
-  checkboxes, a 12-tile function menu, three draggable dials, meters, model
-  cards with metric pills, a table, and four button variants. It is
-  **33621 chars — deliberately over the 20000 ceiling**, built to be looked at
-  in `npm run preview` rather than imported. `npm run build` fails it, by
-  design; trim to the blocks you need before shipping anything like it.
+  tier, **5199/20000**, copying only the kit blocks it uses rather than the
+  whole of `patterns.css`.
+
+`src/` is left to whatever component this repo is actually building; the kit is
+never wired into it by default.
 
 ## 10. Checklist
 
