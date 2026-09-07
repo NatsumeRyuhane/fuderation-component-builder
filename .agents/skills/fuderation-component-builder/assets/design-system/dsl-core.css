@@ -1,0 +1,16 @@
+/* Fuderation design tokens — DSL tier.
+ *
+ * DSL mode reads only the first 1000 characters of CSS, counted AFTER comment
+ * stripping but BEFORE any whitespace collapsing (the build only strips
+ * comments and trims). So: comment as much as you like, it is free — but keep
+ * the declarations themselves compact. Pretty-printing costs real budget.
+ *
+ * This block is ~250 chars, leaving ~750 for the component itself. Delete any
+ * alias you do not use. An alias pays for itself from its second use site:
+ * defining one costs ~40 chars and saves ~24 at each use.
+ *
+ * Short names are deliberate, not laziness — see the budget note above. Use
+ * tokens.css instead whenever the component is in iframe mode, where the CSS
+ * is a real stylesheet and there is no cap.
+ */
+.fd{--fs:var(--bg-elevated,255 255 255);--fk:var(--bg-sunken,241 245 249);--fl:var(--border-subtle,0 0 0/.06);--fi:var(--text-primary,30 41 59);--fm:var(--text-secondary,71 85 105);--fa:var(--color-primary-500,82 82 91)}

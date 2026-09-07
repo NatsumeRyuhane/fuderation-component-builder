@@ -1,0 +1,81 @@
+/* Fuderation component design tokens — the alias layer.
+ *
+ * Scoped to the component wrapper (.fd), never to :root. Two reasons:
+ *   1. A scriptless component whose CSS targets html/body/:root is forced into
+ *      iframe mode by the runtime (regex Q in storyComponents.js).
+ *   2. DSL mode has no stylesheet at all — it flattens each rule onto the
+ *      elements it matches. A :root rule would match nothing; a .fd rule lands
+ *      on the wrapper as inline custom properties, which children inherit.
+ *
+ * Every alias is var(--site-token, shipped-default). In DSL mode the component
+ * lives in the host document, so the site token wins and the component follows
+ * the live storyline theme. In iframe mode no host token crosses the frame
+ * boundary, so the shipped default wins. Same file, both modes.
+ *
+ * Colours are space-separated RGB triples, used as rgb(var(--fd-x) / alpha) --
+ * the site's own convention. The three --fd-line-* aliases are the exception:
+ * they already carry their own alpha, so use rgb(var(--fd-line)) with no slash.
+ */
+
+.fd {
+  /* Surfaces */
+  --fd-surface: var(--bg-elevated, 255 255 255);
+  --fd-surface-sunken: var(--bg-sunken, 241 245 249);
+  --fd-surface-app: var(--bg-app, 248 250 252);
+
+  /* Hairlines. Already alpha-qualified: rgb(var(--fd-line)), never / .5 */
+  --fd-line-subtle: var(--border-subtle, 0 0 0 / .06);
+  --fd-line: var(--border-default, 0 0 0 / .1);
+  --fd-line-strong: var(--border-strong, 0 0 0 / .16);
+
+  /* Ink */
+  --fd-ink-strong: var(--text-strong, 15 23 42);
+  --fd-ink: var(--text-primary, 30 41 59);
+  --fd-ink-muted: var(--text-secondary, 71 85 105);
+  --fd-ink-faint: var(--text-tertiary, 148 163 184);
+  --fd-ink-on-accent: var(--text-on-brand, 255 255 255);
+
+  /* Accent ramp. The storyline theme overrides --color-primary-* wholesale;
+   * the defaults here are the site's shipped zinc ramp, which stays quiet
+   * under any theme rather than fighting it. See DESIGN_SYSTEM.md. */
+  --fd-accent-soft: var(--color-primary-100, 228 228 231);
+  --fd-accent-muted: var(--color-primary-300, 161 161 170);
+  --fd-accent: var(--color-primary-500, 82 82 91);
+  --fd-accent-strong: var(--color-primary-700, 39 39 42);
+
+  /* Radii — rem, so they match the site's chrome at any message font size */
+  --fd-r-xs: var(--radius-xs, .25rem);
+  --fd-r-sm: var(--radius-sm, .375rem);
+  --fd-r-md: var(--radius-md, .5rem);
+  --fd-r-lg: var(--radius-lg, .75rem);
+  --fd-r-xl: var(--radius-xl, 1rem);
+  --fd-r-2xl: var(--radius-2xl, 1.25rem);
+  --fd-r-full: var(--radius-full, 9999px);
+
+  /* Elevation */
+  --fd-shadow-xs: var(--shadow-xs, 0 1px 2px rgb(0 0 0 / .04));
+  --fd-shadow-sm: var(--shadow-sm, 0 1px 3px rgb(0 0 0 / .06), 0 1px 2px rgb(0 0 0 / .04));
+  --fd-shadow-md: var(--shadow-md, 0 4px 8px rgb(0 0 0 / .06), 0 2px 4px rgb(0 0 0 / .04));
+  --fd-shadow-lg: var(--shadow-lg, 0 12px 24px rgb(0 0 0 / .08), 0 4px 8px rgb(0 0 0 / .04));
+
+  /* Motion */
+  --fd-ease: var(--ease-out, cubic-bezier(.16, 1, .3, 1));
+  --fd-dur-fast: var(--duration-fast, .15s);
+  --fd-dur: var(--duration-base, .2s);
+
+  /* Type. Inter is a webfont on the host page, so DSL-mode components get it
+   * and iframe-mode ones cannot (CSP font-src is data: only) — the stack falls
+   * through to system-ui there. Expect a small type difference between modes. */
+  --fd-font: var(--font-ui, Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif);
+  --fd-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Spacing — em, so the component breathes with --chat-message-font-size
+   * (a user setting) instead of drifting out of scale with the prose. */
+  --fd-space-1: .25em;
+  --fd-space-2: .375em;
+  --fd-space-3: .5em;
+  --fd-space-4: .75em;
+  --fd-space-5: 1em;
+  --fd-space-6: 1.25em;
+  --fd-space-7: 1.75em;
+}
