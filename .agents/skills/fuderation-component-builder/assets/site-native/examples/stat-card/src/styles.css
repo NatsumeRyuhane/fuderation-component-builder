@@ -1,0 +1,23 @@
+/* Fuderation design tokens — DSL tier.
+ *
+ * DSL mode reads only the first 1000 characters of CSS, counted AFTER comment
+ * stripping but BEFORE any whitespace collapsing (the build only strips
+ * comments and trims). So: comment as much as you like, it is free — but keep
+ * the declarations themselves compact. Pretty-printing costs real budget.
+ *
+ * This block is ~250 chars, leaving ~750 for the component itself. Delete any
+ * alias you do not use. An alias pays for itself from its second use site:
+ * defining one costs ~40 chars and saves ~24 at each use.
+ *
+ * Short names are deliberate, not laziness — see the budget note above. Use
+ * tokens.css instead whenever the component is in iframe mode, where the CSS
+ * is a real stylesheet and there is no cap.
+ */
+.sn{--nk:var(--bg-sunken,241 245 249);--nl:var(--border-subtle,0 0 0/.06);--ni:var(--text-primary,30 41 59);--nm:var(--text-secondary,71 85 105);--na:var(--color-primary-500,82 82 91)}
+/* Flat by necessity: no :hover, no ::before, no transitions in DSL mode. */
+.sn-card{background:rgb(var(--nk));border:1px solid rgb(var(--nl));border-radius:.75rem;padding:.75em 1em}
+.sn-title{font-weight:600;color:rgb(var(--ni))}
+.sn-body{margin-top:.375em;color:rgb(var(--nm));font-size:.875em}
+.sn-kv{display:flex;justify-content:space-between;gap:.75em;margin-top:.75em;padding-top:.5em;border-top:1px solid rgb(var(--nl));font-size:.875em}
+.sn-kv-k{color:rgb(var(--nm))}
+.sn-kv-v{color:rgb(var(--na));font-weight:600}

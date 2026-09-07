@@ -1,0 +1,123 @@
+/* Stylesheet for the `choice-list` example.
+ *
+ * Only the kit blocks this component uses: the token layer, one hue, the base
+ * contract and the choice-list pattern. patterns.css is a menu, not a bundle —
+ * pasting all of it costs 16989 chars of the 20000 html+css+script budget and
+ * puts a component this small over the ceiling on its own.
+ */
+.sn {
+  /* ── Structure: real site tokens, so these track the user's skin ───────── */
+  --sn-surface: var(--bg-elevated, 255 255 255);
+  --sn-surface-sunken: var(--bg-sunken, 241 245 249);
+  --sn-surface-app: var(--bg-app, 248 250 252);
+
+  /* Hairlines already carry their own alpha: rgb(var(--sn-line)), no slash. */
+  --sn-line-subtle: var(--border-subtle, 0 0 0 / .06);
+  --sn-line: var(--border-default, 0 0 0 / .1);
+  --sn-line-strong: var(--border-strong, 0 0 0 / .16);
+
+  --sn-ink-strong: var(--text-strong, 15 23 42);
+  --sn-ink: var(--text-primary, 30 41 59);
+  --sn-ink-muted: var(--text-secondary, 71 85 105);
+  --sn-ink-faint: var(--text-tertiary, 148 163 184);
+  --sn-ink-on-accent: var(--text-on-brand, 255 255 255);
+
+  --sn-r-xs: var(--radius-xs, .25rem);
+  --sn-r-sm: var(--radius-sm, .375rem);
+  --sn-r-md: var(--radius-md, .5rem);
+  --sn-r-lg: var(--radius-lg, .75rem);
+  --sn-r-xl: var(--radius-xl, 1rem);
+  --sn-r-2xl: var(--radius-2xl, 1.25rem);
+  --sn-r-full: var(--radius-full, 9999px);
+
+  --sn-shadow-xs: var(--shadow-xs, 0 1px 2px rgb(0 0 0 / .04));
+  --sn-shadow-sm: var(--shadow-sm, 0 1px 3px rgb(0 0 0 / .06), 0 1px 2px rgb(0 0 0 / .04));
+  --sn-shadow-md: var(--shadow-md, 0 4px 8px rgb(0 0 0 / .06), 0 2px 4px rgb(0 0 0 / .04));
+  --sn-shadow-lg: var(--shadow-lg, 0 12px 24px rgb(0 0 0 / .08), 0 4px 8px rgb(0 0 0 / .04));
+  /* The site's modal shadow is its own value, not one of the four above. */
+  --sn-shadow-modal: 0 25px 50px -12px rgba(0, 0, 0, .25);
+
+  --sn-ease: var(--ease-out, cubic-bezier(.16, 1, .3, 1));
+  --sn-dur-fast: var(--duration-fast, .15s);
+  --sn-dur: var(--duration-base, .2s);
+
+  --sn-font: var(--font-ui, Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif);
+  --sn-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  --sn-space-1: .25em;
+  --sn-space-2: .375em;
+  --sn-space-3: .5em;
+  --sn-space-4: .75em;
+  --sn-space-5: 1em;
+  --sn-space-6: 1.25em;
+  --sn-space-7: 1.75em;
+
+  /* ── Colour ────────────────────────────────────────────────────────────
+   * The site does NOT drive its chrome from one accent. --color-primary-* is
+   * a zinc ramp in the shipped stylesheet and is never overridden in CSS —
+   * it themes the message bubble (--bg-bubble-user) and little else. The
+   * vivid look of the menus and settings comes from per-feature Tailwind
+   * hues: a tinted icon tile, a coloured toggle, a tinted metric pill.
+   *
+   * So: --sn-accent is the chrome accent (blue, what the site uses for the
+   * active nav item and the send button), and --sn-theme is the separate
+   * hook for anything that should follow the storyline's own theme. Using
+   * --color-primary as a component's only accent is what makes a component
+   * look grey and anonymous next to the real UI. */
+  --sn-accent: 59 130 246;
+  --sn-accent-ink: 37 99 235;
+  --sn-accent-tint: 219 234 254;
+  --sn-accent-wash: 239 246 255;
+  --sn-theme: var(--color-primary-500, 82 82 91);
+  --sn-theme-ink: var(--color-primary-700, 39 39 42);
+
+  /* Default hue for any element carrying a .sn-hue-* consumer but no hue
+   * class. Set --sn-h / --sn-h-ink / --sn-h-tint / --sn-h-wash to reskin. */
+  --sn-h: var(--sn-accent);
+  --sn-h-ink: var(--sn-accent-ink);
+  --sn-h-tint: var(--sn-accent-tint);
+  --sn-h-wash: var(--sn-accent-wash);
+}
+.sn-hue-indigo { --sn-h: 99 102 241;  --sn-h-ink: 79 70 229;   --sn-h-tint: 224 231 255; --sn-h-wash: 238 242 255; }
+.sn {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: var(--sn-font);
+  font-size: 15px;
+  line-height: 1.6;
+  color: rgb(var(--sn-ink));
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+.sn *, .sn *::before, .sn *::after { box-sizing: inherit; }
+.sn p, .sn li, .sn td { overflow-wrap: anywhere; word-break: break-word; }
+.sn-choices {
+  padding: var(--sn-space-4);
+  background: rgb(var(--sn-h) / .04);
+  border: 1px solid rgb(var(--sn-line-subtle));
+  border-radius: var(--sn-r-xl);
+}
+.sn-list { display: flex; flex-direction: column; gap: var(--sn-space-3); margin: 0; padding: 0; list-style: none; }
+.sn-option {
+  display: flex;
+  gap: var(--sn-space-3);
+  width: 100%;
+  padding: var(--sn-space-4) var(--sn-space-5);
+  text-align: left;
+  background: rgb(var(--sn-surface));
+  border: 1px solid rgb(var(--sn-line-subtle));
+  border-radius: var(--sn-r-lg);
+  color: rgb(var(--sn-h-ink));
+  font: inherit;
+  font-size: .9375em;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color var(--sn-dur) var(--sn-ease),
+              box-shadow var(--sn-dur) var(--sn-ease),
+              transform var(--sn-dur-fast) var(--sn-ease);
+}
+.sn-option:hover { border-color: rgb(var(--sn-h) / .35); box-shadow: var(--sn-shadow-sm); }
+.sn-option:active { transform: translateY(1px); }
+.sn-option:focus-visible { outline: 2px solid rgb(var(--sn-h) / .5); outline-offset: 2px; }
+.sn-option[aria-disabled="true"], .sn-option:disabled { color: rgb(var(--sn-ink-faint)); cursor: default; pointer-events: none; }
+.sn-option-idx { flex: none; font-variant-numeric: tabular-nums; color: rgb(var(--sn-h) / .7); }

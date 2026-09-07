@@ -158,7 +158,20 @@ Consequences for a DSL-mode component:
   silently dropped. (Consistent with trigger 4: exceed 1 KB *with no script* and
   you get an iframe instead — but a component **with** a pure-DSL script and
   >1 KB of CSS stays in DSL mode and loses the tail.)
-- `@media`, `@keyframes`, `@font-face` … are skipped.
+- **At-rules lose their condition but not their contents.** Only the
+  `@media (…)` / `@keyframes` *selector* is filtered (`be()` drops selectors
+  starting with `@`). The regex `([^{}]+)\{([^{}]*)\}` then matches the
+  **nested** rule on its own and applies it **unconditionally**:
+  `.fd{color:red}@media (min-width:0px){.fd{font-size:15px}}` flattens to
+  *both* declarations. A component with a pure-DSL script stays in DSL mode
+  even with an at-rule present, so its responsive overrides silently apply at
+  every width. `@keyframes` inner blocks are harmless — the `0%` selector
+  throws in `querySelectorAll` and is skipped.
+- **Vendor-prefixed properties are dropped.** `Ce` requires the property to
+  start `[A-Za-z]`, so `-webkit-*` never survives the filter.
+- **A `;` in a value corrupts the rest of the rule.** `k()` splits on `;` with
+  no quote/paren awareness, so `background:url("data:image/svg+xml;base64,…")`
+  truncates itself *and* swallows every declaration after it.
 - **Stateful pseudo-classes and pseudo-elements never apply, structural ones do
   — once.** Each selector is run through `querySelectorAll` against a *detached
   `<template>`* holding the initial markup:

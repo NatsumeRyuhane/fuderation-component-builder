@@ -1,0 +1,16 @@
+/* Site-native tokens — DSL tier.
+ *
+ * DSL mode reads only the first 1000 characters of CSS, counted AFTER comment
+ * stripping but BEFORE any whitespace collapsing (the build strips comments
+ * and trims, nothing else). Comment freely — it is free. Keep declarations
+ * compact; pretty-printing costs real budget. Short names are deliberate.
+ *
+ * ~290 chars, leaving ~710 for the component. Drop any alias you do not use:
+ * one costs ~40 chars and saves ~24 at each use, so it pays from use two.
+ *
+ * --na is BLUE, not var(--color-primary-500). The site's primary ramp ships as
+ * zinc and is never overridden in CSS — it themes the message bubble, not the
+ * chrome. Driving a component from it is what makes it look grey and
+ * anonymous next to the real UI. Use --nt when you do want the theme colour.
+ */
+.sn{--ns:var(--bg-elevated,255 255 255);--nk:var(--bg-sunken,241 245 249);--nl:var(--border-subtle,0 0 0/.06);--ni:var(--text-primary,30 41 59);--nm:var(--text-secondary,71 85 105);--na:59 130 246;--nai:37 99 235;--nat:219 234 254;--nt:var(--color-primary-500,82 82 91)}

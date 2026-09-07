@@ -9,8 +9,8 @@ the importable `component.json`.
 
 When working in this repo, always load and follow these skills:
 
-- **fuderation-component-builder** — the primary workflow for creating, debugging, and iterating on the component. Defines the `src/` authoring convention, the build (`npm run build` → `component.json`), the bridge function DSL reference, and the phased build process. Its `RUNTIME_INTERNALS.md` records reverse-engineered runtime behaviour, `EXAMPLES.md` collects annotated real components, and `reference/` vendors the official guide.
-- **frontend-design** — design tokens, component patterns, and styling constraints. Use when writing or refining the HTML/CSS.
+- **fuderation-component-builder** — the primary workflow for creating, debugging, and iterating on the component. Defines the `src/` authoring convention, the build (`npm run build` → `component.json`), the bridge function DSL reference, and the phased build process. Its `RUNTIME_INTERNALS.md` records reverse-engineered runtime behaviour, `SITE_NATIVE_KIT.md` is an optional kit for components that should look like native site UI (site tokens, the wrapper-alias rule, DSL vs iframe tiers, and the pattern library in `assets/site-native/`), `EXAMPLES.md` collects annotated real components, and `reference/` vendors the official guide.
+- **frontend-design** — general design craft and the Workshop's layout/sizing constraints. Use when writing or refining the HTML/CSS, and as the default posture: most components want their own aesthetic. Reach for `SITE_NATIVE_KIT.md` only when the component should read as native site chrome rather than as a set piece — it is an option to choose, never the starting point.
 
 ## Project structure
 
