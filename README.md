@@ -122,8 +122,12 @@ Workshop 导入时还会再次去注释：它不识别 JavaScript 正则字面�
 | `src/markup.html` | 去 HTML 注释 + `.trim()` | 相同 |
 | `src/styles.css` | 去 CSS 注释 + `.trim()` | 相同 |
 | `src/script.js` | 去 JS 注释 + `.trim()`，保留逐条桥接调用 | 去注释 + 缩短合适的局部变量/参数名，可关闭或保留指定名称 |
-| `src/script.ts` | 不适用 | esbuild 打包为 IIFE，去空白 + 精简语法 + 混淆标识符 |
+| `src/script.ts` | 不适用 | esbuild 打包为 IIFE、去空白、精简语法；Terser 使用不含 `$` 的名称混淆标识符 |
 | `src/ai_prompt.md` | 仅 `.trim()`，不去注释 | 相同 |
+
+TypeScript 的标识符压缩与 JavaScript 共用只含英文字母的名称生成器，避免 esbuild
+自动生成的 `$` 被运行时误识别为参数分隔符。字符串中的 `$参数$` 仍正常参与替换，
+中文和打包数据保持 Unicode 原文；此规则不受 JavaScript 的 `build.renameIdentifiers` 设置影响。
 
 清理使用语言解析器定位注释后编辑原文，不重新输出整棵语法树。因此引号、中文、URL、
 正则表达式、`$参数$` 和注释之外的缩进都保持原样；变量改名单独按下节规则处理。HTML 中的属性值、

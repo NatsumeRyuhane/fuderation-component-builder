@@ -26,8 +26,9 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { minify } from 'terser';
 import { stripHtmlComments, stripCssComments, stripJavaScriptComments } from './strip-comments.mjs';
-import { renameJavaScriptIdentifiers, readRenameOptions } from './rename-identifiers.mjs';
+import { renameJavaScriptIdentifiers, readRenameOptions, shortName } from './rename-identifiers.mjs';
 import { DSL_EXECUTION_LIMIT, splitDslStatements } from './dsl-statements.mjs';
 import { applyWorkshopFieldStripping } from './workshop-import.mjs';
 
@@ -89,7 +90,7 @@ async function readIf(p) {
 
 // .ts -> compiled, minified IIFE (classic inline script, no ESM import/export).
 // Compiled output always trips the runtime's advanced-JS detector -> iframe mode.
-// Only locals are mangled; bridge fns are injected globals esbuild cannot rename.
+// Only locals are mangled; bridge fns remain injected globals.
 //
 // .js -> comments removed without rewriting code, preserving DSL statements.
 // Iframe scripts can also shorten local identifiers; literals, public names,
@@ -118,13 +119,24 @@ async function buildScript(esbuild, SRC, renameOptions) {
       bundle: true,
       format: 'iife',
       target: 'es2017',
-      minify: true,
+      minifySyntax: true,
+      minifyWhitespace: true,
+      minifyIdentifiers: false,
       charset: 'utf8', // Preserve dense Unicode payloads instead of six-char escapes.
       platform: 'browser',
       write: false,
       legalComments: 'none',
     });
-    return result.outputFiles[0].text.trim();
+    // esbuild's identifier alphabet includes '$', which Workshop can mistake
+    // for parameter delimiters. Delegate only name mangling to Terser using
+    // the same dollar-free alphabet as the JavaScript path. Do not mangle
+    // properties or undeclared bridge globals; preserve literal Unicode.
+    const minified = await minify(result.outputFiles[0].text, {
+      compress: false,
+      mangle: { properties: false, nth_identifier: { get: shortName } },
+      format: { comments: false, ascii_only: false, inline_script: true },
+    });
+    return minified.code.trim();
   }
   if (existsSync(jsPath)) {
     try {

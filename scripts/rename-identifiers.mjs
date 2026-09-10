@@ -15,7 +15,7 @@ function walk(node, visit) {
 
 // Never introduce '$': Fuderation scans pairs of dollars before executing JS.
 // Terser still handles scopes, collisions and reserved words for these names.
-function shortName(index) {
+export function shortName(index) {
   const alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
   let name = '';
   do {
